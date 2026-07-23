@@ -244,10 +244,10 @@ input:focus,button:focus-visible{outline:2px solid var(--verde);outline-offset:1
 
       <form class="form" id="formRegistro" style="display:none" autocomplete="off">
         <h1>Crear cuenta</h1>
-        <p class="ayuda">Escribe el nombre de tu hijo(a) tal como está inscrito en el curso y crea una contraseña. Solo se permite una cuenta por alumno.</p>
+        <p class="ayuda">Escribe el nombre y apellido de tu hijo(a) tal como está inscrito en el curso y crea una contraseña. Solo se permite una cuenta por alumno.</p>
         <div>
           <label for="alumnoReg">Nombre del alumno(a)</label>
-          <input type="text" id="alumnoReg" required placeholder="Nombre y apellidos" autocomplete="off">
+          <input type="text" id="alumnoReg" required placeholder="Ej: Josefa Santander Cáceres" autocomplete="off">
         </div>
         <div>
           <label for="apoderadoReg">Tu nombre (apoderado, opcional)</label>
@@ -385,7 +385,9 @@ async function sha256(texto){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
   return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
-const hashCredencial = (alumno, pass) => sha256(normalizar(alumno) + '|' + pass);
+/* El hash no incluye el nombre: así "Luan Campos" y "Luan Campos Ramirez"
+   generan la misma credencial y ninguna variación de escritura bloquea el ingreso */
+const hashCredencial = (alumno, pass) => sha256('cuotas|' + pass);
 const hashAdmin = pass => sha256('admin|' + pass);
 
 function clp(n){
