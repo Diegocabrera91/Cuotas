@@ -1,0 +1,26 @@
+{
+  "name": "Cuotas del Curso · Portal de Apoderados",
+  "short_name": "Cuotas Curso",
+  "description": "Consulta las cuotas de tu hijo(a), los gastos y el saldo del curso.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F4EC",
+  "theme_color": "#14604A",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
