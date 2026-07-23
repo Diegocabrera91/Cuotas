@@ -81,11 +81,16 @@ input{font-family:inherit;font-size:16px}
 .form h1{font-family:var(--f-display);font-size:1.35rem;font-weight:800;line-height:1.2}
 .form p.ayuda{color:var(--tinta-suave);font-size:.88rem;margin-top:-6px}
 label{font-size:.82rem;font-weight:600;color:var(--tinta-suave);display:block;margin-bottom:5px}
-input{
+input,select{
   width:100%;padding:11px 12px;border:1px solid var(--linea);border-radius:10px;
-  background:#FCFBF7;color:var(--tinta);
+  background:#FCFBF7;color:var(--tinta);font-family:inherit;font-size:16px;
 }
-input:focus,button:focus-visible{outline:2px solid var(--verde);outline-offset:1px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);outline-offset:1px}
+.form-pago{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-pago .ancho{grid-column:1 / -1}
+@media(max-width:480px){.form-pago{grid-template-columns:1fr}}
+.btn-anular{background:var(--rojo)}
+.btn-anular:hover{background:#8E2B24}
 .btn-principal{
   background:var(--verde);color:#fff;border:none;border-radius:10px;
   padding:13px;font-size:1rem;font-weight:700;transition:background .15s;
@@ -338,6 +343,38 @@ input:focus,button:focus-visible{outline:2px solid var(--verde);outline-offset:1
     </div>
 
     <div class="bloque">
+      <h3>Registrar pago</h3>
+      <div class="aviso" id="avisoPago" style="margin-bottom:12px"></div>
+      <form id="formPago" class="form-pago" autocomplete="off">
+        <div class="ancho">
+          <label for="selAlumnoPago">Alumno(a)</label>
+          <select id="selAlumnoPago" required><option value="">— Selecciona —</option></select>
+        </div>
+        <div>
+          <label for="selMesPago">Mes</label>
+          <select id="selMesPago" required><option value="">—</option></select>
+        </div>
+        <div>
+          <label for="montoPago">Monto</label>
+          <input type="number" id="montoPago" min="0" step="1" placeholder="3000">
+        </div>
+        <div>
+          <label for="metodoPago">Método de pago</label>
+          <input list="listaMetodos" id="metodoPago" value="Transferencia">
+          <datalist id="listaMetodos">
+            <option>Transferencia</option>
+            <option>Efectivo</option>
+          </datalist>
+        </div>
+        <div>
+          <label for="fechaPago">Fecha del pago</label>
+          <input type="date" id="fechaPago">
+        </div>
+        <button type="submit" class="btn-principal ancho" id="btnPago">Registrar pago</button>
+      </form>
+    </div>
+
+    <div class="bloque">
       <h3>Estado de pagos por alumno <small id="admResumenEstado"></small></h3>
       <div class="scroll-x">
         <table class="tabla">
@@ -555,12 +592,32 @@ async function cargarAdmin(){
   }
 }
 
+let estadoAdmin = [];
+let montoSugerido = 0;
+
 function pintarAdmin(d){
+  estadoAdmin = d.estado || [];
+  montoSugerido = d.montoSugerido || 0;
+
   $('fechaActAdmin').textContent = 'Actualizado: ' + (d.actualizado||'');
   $('admRecaudado').textContent = clp(d.recaudado);
   $('admGastos').textContent = clp(d.totalGastos);
   $('admSaldoAnt').textContent = clp(d.saldoAnterior);
   $('admSaldo').textContent = clp(d.saldoActual);
+
+  // Formulario de pago
+  const selA = $('selAlumnoPago');
+  const previo = selA.value;
+  selA.innerHTML = '<option value="">— Selecciona —</option>' +
+    estadoAdmin.map(a=>`<option value="${esc(a.nombre)}">${esc(a.nombre)}</option>`).join('');
+  if (previo && estadoAdmin.some(a=>a.nombre===previo)) selA.value = previo;
+  llenarMesesPago();
+  if(!$('fechaPago').value){
+    const hoy = new Date();
+    $('fechaPago').value = hoy.getFullYear() + '-' +
+      String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
+  }
+  if(!$('montoPago').value && montoSugerido) $('montoPago').value = montoSugerido;
 
   const alDia = d.estado.filter(a=>a.pendientes===0).length;
   $('admResumenEstado').textContent = d.estado.length + ' alumnos · ' + alDia + ' con todo pagado';
@@ -605,6 +662,66 @@ function pintarAdmin(d){
     };
   });
 }
+
+/* ── Registrar / anular pagos ── */
+function alumnoSeleccionadoPago(){
+  return estadoAdmin.find(a => a.nombre === $('selAlumnoPago').value) || null;
+}
+function llenarMesesPago(){
+  const a = alumnoSeleccionadoPago();
+  const sel = $('selMesPago');
+  if(!a){ sel.innerHTML = '<option value="">—</option>'; actualizarBotonPago(); return; }
+  sel.innerHTML = a.meses.map(m=>
+    `<option value="${esc(m.mes)}" data-estado="${m.estado}">${esc(m.mes)} — ${m.estado}</option>`
+  ).join('') || '<option value="">Sin cuotas</option>';
+  // Preseleccionar el primer mes pendiente
+  const pendiente = a.meses.find(m=>m.estado==='Pendiente');
+  if(pendiente) sel.value = pendiente.mes;
+  actualizarBotonPago();
+}
+function mesSeleccionadoPagado(){
+  const op = $('selMesPago').selectedOptions[0];
+  return !!op && op.getAttribute('data-estado')==='Pagada';
+}
+function actualizarBotonPago(){
+  const anular = mesSeleccionadoPagado();
+  const btn = $('btnPago');
+  btn.textContent = anular ? 'Anular pago' : 'Registrar pago';
+  btn.classList.toggle('btn-anular', anular);
+  ['montoPago','metodoPago','fechaPago'].forEach(id=>{ $(id).disabled = anular; });
+}
+$('selAlumnoPago').addEventListener('change', llenarMesesPago);
+$('selMesPago').addEventListener('change', actualizarBotonPago);
+
+$('formPago').addEventListener('submit', async ev=>{
+  ev.preventDefault();
+  const av = $('avisoPago');
+  const alumno = $('selAlumnoPago').value;
+  const mes = $('selMesPago').value;
+  if(!alumno || !mes) return aviso(av,'error','Selecciona alumno y mes.');
+  const anular = mesSeleccionadoPagado();
+  const params = {action:'adminPago', alumno, mes, operacion: anular?'anular':'pagar'};
+  if(!anular){
+    const monto = Number($('montoPago').value);
+    if(!monto || monto<=0) return aviso(av,'error','Ingresa el monto del pago.');
+    params.monto = monto;
+    params.metodo = $('metodoPago').value.trim();
+    params.fecha = $('fechaPago').value;
+  } else if(!confirm('¿Anular el pago de ' + mes + ' de ' + alumno + '?\n\nLa cuota volverá a Pendiente y el monto quedará en 0.')){
+    return;
+  }
+  aviso(av,'',''); $('btnPago').disabled = true;
+  try{
+    const s = leer('sesionAdminCuotas');
+    params.adminHash = s.adminHash;
+    const r = await api(params);
+    if(!r.ok) throw new Error(r.error);
+    aviso(av,'exito', r.mensaje||'Listo.');
+    await cargarAdmin(); // refresca chips, tablas y el propio formulario
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo registrar el pago.');
+  }finally{ $('btnPago').disabled = false; }
+});
 
 /* ══════════ SALIR ══════════ */
 $('btnSalir').onclick = ()=>{
