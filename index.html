@@ -1,666 +1,448 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cuotas del Curso · Portal de Apoderados</title>
+/**
+ * PORTAL DE APODERADOS — CUOTAS DEL CURSO (v3)
+ * Backend Google Apps Script (patrón GET / CORS-safe, JSON via ContentService)
+ *
+ * Cambios v3:
+ * - El apoderado ESCRIBE el nombre de su hijo(a) al registrarse; el servidor
+ *   valida contra la lista oficial (tolerante a mayúsculas, tildes y espacios)
+ *   y guarda el nombre canónico de la hoja.
+ * - Se eliminó la acción pública 'alumnos' por privacidad: la lista de niños
+ *   del curso ya no es consultable desde la API.
+ *
+ * DESPLIEGUE:
+ * 1. Pega el ID del Sheets en SPREADSHEET_ID.
+ * 2. En configurarAdmin(), escribe la clave de administrador y EJECÚTALA UNA VEZ
+ *    desde el editor (Ejecutar > configurarAdmin). Luego vuelve a dejar el texto
+ *    en 'CAMBIA_ESTA_CLAVE'.
+ * 3. Implementar > Administrar implementaciones > lápiz > Versión: NUEVA VERSIÓN
+ *    (así la misma URL /exec toma este código).
+ */
 
-<!-- PWA -->
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#14604A">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Cuotas Curso">
-<link rel="apple-touch-icon" href="./icon-192.png">
-<link rel="icon" type="image/png" href="./icon-192.png">
+const SPREADSHEET_ID = 'PEGA_AQUI_EL_ID_DE_TU_SHEETS';
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-/* ── Tokens ─────────────────────────────────────────── */
-:root{
-  --verde:#14604A;
-  --verde-osc:#0D4636;
-  --verde-sello:#1B7A4B;
-  --verde-suave:#E3F1E8;
-  --papel:#F6F4EC;
-  --papel-card:#FFFFFF;
-  --tinta:#22322C;
-  --tinta-suave:#5C6B64;
-  --rojo:#B3372E;
-  --rojo-suave:#FBEAE8;
-  --ambar:#E8A13B;
-  --ambar-suave:#FDF3E1;
-  --linea:#DDD8C9;
-  --radio:14px;
-  --sombra:0 2px 10px rgba(20,60,45,.08);
-  --f-display:'Bricolage Grotesque',system-ui,sans-serif;
-  --f-body:'Public Sans',system-ui,sans-serif;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%}
-body{
-  font-family:var(--f-body);color:var(--tinta);background:var(--papel);
-  min-height:100vh;font-size:15.5px;line-height:1.5;
-}
-button{font-family:inherit;cursor:pointer}
-input,select{font-family:inherit;font-size:16px}
+const HOJA_ALUMNOS  = 'Alumnos';
+const HOJA_CUOTAS   = 'Cuotas';
+const HOJA_GASTOS   = 'Gastos';
+const HOJA_RESUMEN  = 'Resumen';
+const HOJA_USUARIOS = 'Usuarios';
 
-/* ── Barra superior ─────────────────────────────────── */
-.topbar{
-  background:var(--verde);color:#fff;padding:14px 18px;
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding-top:calc(14px + env(safe-area-inset-top));
-}
-.topbar .marca{font-family:var(--f-display);font-weight:800;font-size:1.05rem;letter-spacing:.2px}
-.topbar .marca span{opacity:.75;font-weight:400}
-.topbar .acciones{display:flex;gap:8px}
-.btn-top{
-  background:transparent;border:1px solid rgba(255,255,255,.45);color:#fff;
-  border-radius:8px;padding:6px 12px;font-size:.82rem;font-weight:600;display:none;
-}
-.btn-top:hover{background:rgba(255,255,255,.12)}
+const MESES_ORDEN = ['marzo','abril','mayo','junio','julio','agosto',
+                     'septiembre','octubre','noviembre','diciembre'];
 
-.contenedor{max-width:680px;margin:0 auto;padding:20px 16px 60px}
-
-/* ── Cards y formularios ────────────────────────────── */
-.card{
-  background:var(--papel-card);border:1px solid var(--linea);
-  border-radius:var(--radio);box-shadow:var(--sombra);overflow:hidden;
-}
-.card-login{max-width:440px;margin:5vh auto 0}
-.tabs{display:flex;border-bottom:1px solid var(--linea)}
-.tabs button{
-  flex:1;background:none;border:none;padding:14px 8px;font-size:.95rem;
-  font-weight:600;color:var(--tinta-suave);border-bottom:3px solid transparent;
-}
-.tabs button.activa{color:var(--verde);border-bottom-color:var(--verde)}
-.form{padding:22px 22px 26px;display:flex;flex-direction:column;gap:14px}
-.form h1{font-family:var(--f-display);font-size:1.35rem;font-weight:800;line-height:1.2}
-.form p.ayuda{color:var(--tinta-suave);font-size:.88rem;margin-top:-6px}
-label{font-size:.82rem;font-weight:600;color:var(--tinta-suave);display:block;margin-bottom:5px}
-input,select{
-  width:100%;padding:11px 12px;border:1px solid var(--linea);border-radius:10px;
-  background:#FCFBF7;color:var(--tinta);
-}
-input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);outline-offset:1px}
-.btn-principal{
-  background:var(--verde);color:#fff;border:none;border-radius:10px;
-  padding:13px;font-size:1rem;font-weight:700;transition:background .15s;
-}
-.btn-principal:hover{background:var(--verde-osc)}
-.btn-principal:disabled{opacity:.55;cursor:wait}
-.aviso{display:none;padding:11px 13px;border-radius:10px;font-size:.88rem;font-weight:500}
-.aviso.error{display:block;background:var(--rojo-suave);color:var(--rojo)}
-.aviso.exito{display:block;background:var(--verde-suave);color:var(--verde-osc)}
-.link-admin{
-  display:block;margin:16px auto 0;background:none;border:none;
-  color:var(--tinta-suave);font-size:.82rem;text-decoration:underline;
-}
-.link-admin:hover{color:var(--verde)}
-
-/* ── Panel apoderado ────────────────────────────────── */
-#vista-panel,#vista-admin,#vista-admin-login{display:none}
-.saludo{margin:6px 2px 18px}
-.saludo .eyebrow{
-  font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--verde-sello);
-}
-.saludo h2{font-family:var(--f-display);font-weight:800;font-size:1.55rem;line-height:1.15}
-.saludo .fecha-act{color:var(--tinta-suave);font-size:.82rem;margin-top:4px}
-
-.libreta,.bloque{
-  background:var(--papel-card);border:1px solid var(--linea);border-radius:var(--radio);
-  box-shadow:var(--sombra);padding:18px 16px;margin-bottom:18px;
-}
-.libreta h3,.bloque h3{
-  font-family:var(--f-display);font-weight:800;font-size:1.02rem;margin-bottom:12px;
-  display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;
-}
-.libreta h3 small,.bloque h3 small{font-family:var(--f-body);font-weight:600;font-size:.8rem;color:var(--tinta-suave)}
-.talones{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-@media(min-width:520px){.talones{grid-template-columns:repeat(3,1fr)}}
-.talon{
-  position:relative;border:1px dashed var(--linea);border-radius:10px;
-  padding:10px 12px 12px;background:#FCFBF7;overflow:hidden;
-}
-.talon .mes{font-weight:700;font-size:.9rem;text-transform:capitalize}
-.talon .monto{
-  font-family:var(--f-display);font-weight:800;font-size:1.12rem;
-  font-variant-numeric:tabular-nums;margin:2px 0 1px;
-}
-.talon .meta{font-size:.72rem;color:var(--tinta-suave)}
-.talon.pagada{background:var(--verde-suave);border-color:#BCDCC9}
-.sello{
-  position:absolute;top:8px;right:-6px;transform:rotate(8deg);
-  font-family:var(--f-display);font-weight:800;font-size:.66rem;letter-spacing:.08em;
-  padding:3px 10px;border-radius:4px;border:2px solid currentColor;
-}
-.sello.ok{color:var(--verde-sello)}
-.sello.no{color:var(--rojo)}
-.mi-total{
-  margin-top:14px;padding-top:12px;border-top:1px dashed var(--linea);
-  display:flex;justify-content:space-between;align-items:baseline;font-weight:600;
-}
-.mi-total b{font-family:var(--f-display);font-weight:800;font-size:1.15rem;color:var(--verde-sello)}
-
-.linea-cuenta{
-  display:flex;justify-content:space-between;align-items:baseline;
-  padding:9px 2px;border-bottom:1px solid #EFECE2;font-size:.94rem;
-}
-.linea-cuenta:last-child{border-bottom:none}
-.linea-cuenta .monto{font-variant-numeric:tabular-nums;font-weight:600}
-.linea-cuenta.negativo .monto{color:var(--rojo)}
-.linea-cuenta.total{border-top:2px solid var(--tinta);border-bottom:none;margin-top:4px;padding-top:12px}
-.linea-cuenta.total span{font-weight:700}
-.linea-cuenta.total .monto{
-  font-family:var(--f-display);font-weight:800;font-size:1.25rem;color:var(--verde-sello);
-}
-
-.tabla{width:100%;border-collapse:collapse;font-size:.88rem}
-.tabla th{
-  text-align:left;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--tinta-suave);padding:6px 6px;border-bottom:1px solid var(--linea);
-}
-.tabla td{padding:8px 6px;border-bottom:1px solid #EFECE2;vertical-align:middle}
-.tabla td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
-.tabla tr:last-child td{border-bottom:none}
-.sin-datos{color:var(--tinta-suave);font-size:.9rem;padding:6px 2px}
-
-/* ── Panel admin ────────────────────────────────────── */
-.chips{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}
-@media(min-width:520px){.chips{grid-template-columns:repeat(4,1fr)}}
-.chip{
-  background:var(--papel-card);border:1px solid var(--linea);border-radius:12px;
-  padding:12px;box-shadow:var(--sombra);
-}
-.chip .etiq{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-suave)}
-.chip .valor{
-  font-family:var(--f-display);font-weight:800;font-size:1.15rem;
-  font-variant-numeric:tabular-nums;margin-top:2px;
-}
-.chip.destacado{background:var(--verde);border-color:var(--verde)}
-.chip.destacado .etiq{color:rgba(255,255,255,.75)}
-.chip.destacado .valor{color:#fff}
-.pill{
-  display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:700;
-}
-.pill.ok{background:var(--verde-suave);color:var(--verde-osc)}
-.pill.medio{background:var(--ambar-suave);color:#8A5E13}
-.pill.no{background:var(--rojo-suave);color:var(--rojo)}
-.pill.gris{background:#EFECE2;color:var(--tinta-suave)}
-.btn-mini{
-  background:none;border:1px solid var(--rojo);color:var(--rojo);
-  border-radius:8px;padding:4px 10px;font-size:.76rem;font-weight:700;
-}
-.btn-mini:hover{background:var(--rojo-suave)}
-.btn-mini:disabled{opacity:.5;cursor:wait}
-.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
-
-/* ── Cargando ───────────────────────────────────────── */
-.cargando{display:none;text-align:center;padding:40px 0;color:var(--tinta-suave)}
-.spinner{
-  width:34px;height:34px;border:4px solid var(--verde-suave);border-top-color:var(--verde);
-  border-radius:50%;margin:0 auto 12px;animation:girar .8s linear infinite;
-}
-@keyframes girar{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.spinner{animation-duration:2.5s}}
-</style>
-</head>
-<body>
-
-<header class="topbar">
-  <div class="marca">Cuotas del Curso <span>· Portal de Apoderados</span></div>
-  <div class="acciones">
-    <button class="btn-top" id="btnInstalar">Instalar app</button>
-    <button class="btn-top" id="btnSalir">Cerrar sesión</button>
-  </div>
-</header>
-
-<main class="contenedor">
-
-  <!-- ══ LOGIN / REGISTRO APODERADO ══ -->
-  <section id="vista-login">
-    <div class="card card-login">
-      <div class="tabs">
-        <button id="tabIngresar" class="activa">Ingresar</button>
-        <button id="tabRegistro">Crear cuenta</button>
-      </div>
-
-      <form class="form" id="formLogin" autocomplete="off">
-        <h1>Bienvenido(a)</h1>
-        <p class="ayuda">Ingresa con el nombre de tu hijo(a) y tu contraseña.</p>
-        <div>
-          <label for="selAlumnoLogin">Alumno(a)</label>
-          <select id="selAlumnoLogin" required><option value="">Cargando lista…</option></select>
-        </div>
-        <div>
-          <label for="passLogin">Contraseña</label>
-          <input type="password" id="passLogin" required autocomplete="current-password">
-        </div>
-        <div class="aviso" id="avisoLogin"></div>
-        <button type="submit" class="btn-principal" id="btnLogin">Ingresar</button>
-      </form>
-
-      <form class="form" id="formRegistro" style="display:none" autocomplete="off">
-        <h1>Crear cuenta</h1>
-        <p class="ayuda">Elige el nombre de tu hijo(a) y crea una contraseña. Solo se permite una cuenta por alumno.</p>
-        <div>
-          <label for="selAlumnoReg">Alumno(a)</label>
-          <select id="selAlumnoReg" required><option value="">Cargando lista…</option></select>
-        </div>
-        <div>
-          <label for="apoderadoReg">Tu nombre (apoderado, opcional)</label>
-          <input type="text" id="apoderadoReg" placeholder="Ej: Carolina Pérez">
-        </div>
-        <div>
-          <label for="passReg">Contraseña (mínimo 6 caracteres)</label>
-          <input type="password" id="passReg" minlength="6" required autocomplete="new-password">
-        </div>
-        <div>
-          <label for="passReg2">Repite la contraseña</label>
-          <input type="password" id="passReg2" minlength="6" required autocomplete="new-password">
-        </div>
-        <div class="aviso" id="avisoReg"></div>
-        <button type="submit" class="btn-principal" id="btnReg">Crear cuenta</button>
-      </form>
-    </div>
-    <button class="link-admin" id="btnIrAdmin">Acceso administrador</button>
-  </section>
-
-  <!-- ══ LOGIN ADMIN ══ -->
-  <section id="vista-admin-login">
-    <div class="card card-login">
-      <form class="form" id="formAdmin" autocomplete="off">
-        <h1>Administrador</h1>
-        <p class="ayuda">Acceso exclusivo para la tesorería del curso.</p>
-        <div>
-          <label for="passAdmin">Clave de administrador</label>
-          <input type="password" id="passAdmin" required autocomplete="current-password">
-        </div>
-        <div class="aviso" id="avisoAdmin"></div>
-        <button type="submit" class="btn-principal" id="btnAdminLogin">Ingresar</button>
-      </form>
-    </div>
-    <button class="link-admin" id="btnVolverLogin">← Volver al acceso de apoderados</button>
-  </section>
-
-  <!-- ══ CARGANDO ══ -->
-  <div class="cargando" id="cargando">
-    <div class="spinner"></div>
-    Cargando información…
-  </div>
-
-  <!-- ══ PANEL APODERADO ══ -->
-  <section id="vista-panel">
-    <div class="saludo">
-      <div class="eyebrow">Libreta de pagos 2026</div>
-      <h2 id="nombreAlumno">—</h2>
-      <div class="fecha-act" id="fechaAct"></div>
-    </div>
-
-    <div class="libreta">
-      <h3>Cuotas del año <small id="resumenCuotas"></small></h3>
-      <div class="talones" id="talones"></div>
-      <div class="mi-total">
-        <span>Total pagado por tu familia</span>
-        <b id="misPagos">$0</b>
-      </div>
-    </div>
-
-    <div class="bloque">
-      <h3>Fondos del curso</h3>
-      <div class="linea-cuenta"><span>Saldo año anterior</span><span class="monto" id="saldoAnterior">$0</span></div>
-      <div class="linea-cuenta"><span>Cuotas recaudadas este año</span><span class="monto" id="recaudado">$0</span></div>
-      <div class="linea-cuenta negativo"><span>Gastos del año</span><span class="monto" id="totalGastos">−$0</span></div>
-      <div class="linea-cuenta total"><span>Saldo disponible</span><span class="monto" id="saldoActual">$0</span></div>
-    </div>
-
-    <div class="bloque">
-      <h3>Detalle de gastos</h3>
-      <div id="zonaGastos"></div>
-    </div>
-  </section>
-
-  <!-- ══ PANEL ADMIN ══ -->
-  <section id="vista-admin">
-    <div class="saludo">
-      <div class="eyebrow">Tesorería del curso</div>
-      <h2>Panel de administración</h2>
-      <div class="fecha-act" id="fechaActAdmin"></div>
-    </div>
-
-    <div class="chips">
-      <div class="chip"><div class="etiq">Recaudado</div><div class="valor" id="admRecaudado">$0</div></div>
-      <div class="chip"><div class="etiq">Gastos</div><div class="valor" id="admGastos">$0</div></div>
-      <div class="chip"><div class="etiq">Saldo anterior</div><div class="valor" id="admSaldoAnt">$0</div></div>
-      <div class="chip destacado"><div class="etiq">Saldo disponible</div><div class="valor" id="admSaldo">$0</div></div>
-    </div>
-
-    <div class="bloque">
-      <h3>Estado de pagos por alumno <small id="admResumenEstado"></small></h3>
-      <div class="scroll-x">
-        <table class="tabla">
-          <thead><tr>
-            <th>Alumno</th><th>Cuotas</th><th style="text-align:right">Pagado</th><th>Cuenta</th>
-          </tr></thead>
-          <tbody id="admEstado"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="bloque">
-      <h3>Cuentas de apoderados <small id="admResumenCuentas"></small></h3>
-      <p class="ayuda" style="margin:-6px 0 10px;color:var(--tinta-suave);font-size:.85rem">
-        Si un apoderado olvidó su contraseña, elimina su cuenta y pídele que se registre de nuevo.
-      </p>
-      <div class="aviso" id="avisoAdmCuentas"></div>
-      <div class="scroll-x">
-        <table class="tabla">
-          <thead><tr>
-            <th>Alumno</th><th>Apoderado</th><th>Registro</th><th></th>
-          </tr></thead>
-          <tbody id="admCuentas"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<script>
-/* ══════════ CONFIGURACIÓN ══════════ */
-const API_URL = 'https://script.google.com/macros/s/AKfycbzC0TCCKu79Zqes7VoRuLaT3iO6g7_2K-N1uB6sDrxbRD_2_R8E58xI-DVU0cs8AXw/exec';
-
-/* ══════════ UTILIDADES ══════════ */
-const $ = id => document.getElementById(id);
-
-function normalizar(s){
-  return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-}
-async function sha256(texto){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
-  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-const hashCredencial = (alumno, pass) => sha256(normalizar(alumno) + '|' + pass);
-const hashAdmin = pass => sha256('admin|' + pass);
-
-function clp(n){
-  const v = Math.round(Number(n)||0);
-  return (v<0?'−':'') + '$' + Math.abs(v).toLocaleString('es-CL');
-}
-function esc(s){
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-async function api(params){
-  const url = API_URL + '?' + new URLSearchParams(params).toString();
-  const res = await fetch(url);
-  if(!res.ok) throw new Error('No se pudo conectar con el servidor');
-  return res.json();
-}
-const guardar = (k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
-const leer    = k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } };
-const borrar  = k=>{ try{ localStorage.removeItem(k); }catch(e){} };
-
-/* ══════════ VISTAS ══════════ */
-function mostrar(vista){
-  ['vista-login','vista-admin-login','vista-panel','vista-admin'].forEach(v=>{
-    $(v).style.display = v===vista ? (v.indexOf('vista-panel')===0||v==='vista-admin'?'block':'') : 'none';
-  });
-  $('cargando').style.display = vista==='cargando' ? 'block' : 'none';
-  if(vista==='cargando') ['vista-login','vista-admin-login','vista-panel','vista-admin'].forEach(v=>$(v).style.display='none');
-  $('btnSalir').style.display = (vista==='vista-panel'||vista==='vista-admin') ? 'inline-block' : 'none';
-}
-function aviso(el, tipo, msg){
-  el.className = 'aviso ' + (tipo||'');
-  el.textContent = msg||'';
-}
-
-/* ══════════ TABS APODERADO ══════════ */
-$('tabIngresar').onclick = ()=>{
-  $('tabIngresar').classList.add('activa'); $('tabRegistro').classList.remove('activa');
-  $('formLogin').style.display=''; $('formRegistro').style.display='none';
-};
-$('tabRegistro').onclick = ()=>{
-  $('tabRegistro').classList.add('activa'); $('tabIngresar').classList.remove('activa');
-  $('formRegistro').style.display=''; $('formLogin').style.display='none';
-};
-$('btnIrAdmin').onclick = ()=> mostrar('vista-admin-login');
-$('btnVolverLogin').onclick = ()=> mostrar('vista-login');
-
-/* ══════════ LISTA DE ALUMNOS ══════════ */
-async function cargarAlumnos(){
-  try{
-    const r = await api({action:'alumnos'});
-    if(!r.ok) throw new Error(r.error);
-    const op = a => `<option value="${esc(a.nombre)}">${esc(a.nombre)}</option>`;
-    $('selAlumnoLogin').innerHTML = '<option value="">— Selecciona —</option>' +
-      r.alumnos.filter(a=>a.registrado).map(op).join('');
-    $('selAlumnoReg').innerHTML = '<option value="">— Selecciona —</option>' +
-      r.alumnos.map(a => a.registrado
-        ? `<option disabled>${esc(a.nombre)} (ya registrado)</option>`
-        : op(a)).join('');
-  }catch(e){
-    $('selAlumnoLogin').innerHTML = $('selAlumnoReg').innerHTML =
-      '<option value="">Error al cargar la lista</option>';
+/**
+ * ►► EJECUTAR UNA VEZ desde el editor para fijar la clave de admin.
+ */
+function configurarAdmin() {
+  const clave = 'CAMBIA_ESTA_CLAVE';
+  if (clave === 'CAMBIA_ESTA_CLAVE') {
+    throw new Error('Escribe tu clave real antes de ejecutar configurarAdmin()');
   }
+  const hash = sha256Hex_('admin|' + clave);
+  PropertiesService.getScriptProperties().setProperty('ADMIN_HASH', hash);
+  Logger.log('Clave de administrador configurada correctamente.');
 }
 
-/* ══════════ REGISTRO ══════════ */
-$('formRegistro').addEventListener('submit', async ev=>{
-  ev.preventDefault();
-  const alumno = $('selAlumnoReg').value;
-  const p1 = $('passReg').value, p2 = $('passReg2').value;
-  const av = $('avisoReg');
-  if(!alumno) return aviso(av,'error','Selecciona un alumno.');
-  if(p1.length<6) return aviso(av,'error','La contraseña debe tener al menos 6 caracteres.');
-  if(p1!==p2) return aviso(av,'error','Las contraseñas no coinciden.');
-  aviso(av,'',''); $('btnReg').disabled = true;
-  try{
-    const hash = await hashCredencial(alumno, p1);
-    const r = await api({action:'registro', alumno, hash, apoderado: $('apoderadoReg').value.trim()});
-    if(!r.ok) throw new Error(r.error);
-    aviso(av,'exito','¡Cuenta creada! Ingresando…');
-    guardar('sesionCuotas', {alumno, hash});
-    await cargarPanel();
-  }catch(e){
-    aviso(av,'error', e.message||'No se pudo crear la cuenta.');
-  }finally{ $('btnReg').disabled = false; }
-});
-
-/* ══════════ LOGIN APODERADO ══════════ */
-$('formLogin').addEventListener('submit', async ev=>{
-  ev.preventDefault();
-  const alumno = $('selAlumnoLogin').value;
-  const av = $('avisoLogin');
-  if(!alumno) return aviso(av,'error','Selecciona un alumno.');
-  aviso(av,'',''); $('btnLogin').disabled = true;
-  try{
-    const hash = await hashCredencial(alumno, $('passLogin').value);
-    const r = await api({action:'login', alumno, hash});
-    if(!r.ok) throw new Error(r.error);
-    guardar('sesionCuotas', {alumno, hash});
-    await cargarPanel();
-  }catch(e){
-    aviso(av,'error', e.message||'No se pudo ingresar.');
-  }finally{ $('btnLogin').disabled = false; }
-});
-
-/* ══════════ PANEL APODERADO ══════════ */
-async function cargarPanel(){
-  const s = leer('sesionCuotas');
-  if(!s) return mostrar('vista-login');
-  mostrar('cargando');
-  try{
-    const d = await api({action:'datos', alumno:s.alumno, hash:s.hash});
-    if(!d.ok) throw new Error(d.error);
-    pintarPanel(d);
-    mostrar('vista-panel');
-  }catch(e){
-    borrar('sesionCuotas');
-    mostrar('vista-login');
-    aviso($('avisoLogin'),'error', e.message||'Vuelve a ingresar.');
+// ─────────────────────────────────────────────────────────────
+// ROUTER
+// ─────────────────────────────────────────────────────────────
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  let out;
+  try {
+    switch (p.action) {
+      case 'registro':      out = accionRegistro(p);      break;
+      case 'login':         out = accionLogin(p);         break;
+      case 'datos':         out = accionDatos(p);         break;
+      case 'adminLogin':    out = accionAdminLogin(p);    break;
+      case 'adminDatos':    out = accionAdminDatos(p);    break;
+      case 'adminEliminar': out = accionAdminEliminar(p); break;
+      default:              out = { ok: false, error: 'Acción no válida' };
+    }
+  } catch (err) {
+    out = { ok: false, error: 'Error del servidor: ' + String(err && err.message || err) };
   }
+  return ContentService
+    .createTextOutput(JSON.stringify(out))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
-function pintarPanel(d){
-  $('nombreAlumno').textContent = d.alumno;
-  $('fechaAct').textContent = 'Actualizado: ' + (d.actualizado||'');
-
-  const pagadas = d.cuotas.filter(c=>c.estado==='Pagada').length;
-  $('resumenCuotas').textContent = pagadas + ' de ' + d.cuotas.length + ' pagadas';
-
-  $('talones').innerHTML = d.cuotas.map(c=>{
-    const ok = c.estado==='Pagada';
-    return `<div class="talon ${ok?'pagada':''}">
-      <span class="sello ${ok?'ok':'no'}">${ok?'PAGADA':'PENDIENTE'}</span>
-      <div class="mes">${esc(c.mes)||'—'}</div>
-      <div class="monto">${ok?clp(c.monto):'—'}</div>
-      <div class="meta">${ok ? esc([c.fecha,c.metodo].filter(Boolean).join(' · ')) : '&nbsp;'}</div>
-    </div>`;
-  }).join('') || '<div class="sin-datos">Aún no hay cuotas registradas para este alumno.</div>';
-
-  $('misPagos').textContent = clp(d.misPagos);
-  $('saldoAnterior').textContent = clp(d.saldoAnterior);
-  $('recaudado').textContent = clp(d.recaudado);
-  $('totalGastos').textContent = '−' + clp(d.totalGastos).replace('−','');
-  $('saldoActual').textContent = clp(d.saldoActual);
-
-  $('zonaGastos').innerHTML = d.gastos && d.gastos.length
-    ? `<div class="scroll-x"><table class="tabla">
-        <thead><tr><th>Fecha</th><th>Detalle</th><th style="text-align:right">Monto</th></tr></thead>
-        <tbody>${d.gastos.map(g=>
-          `<tr><td>${esc(g.fecha)}</td><td>${esc(g.detalle)}</td><td class="num">${clp(g.monto)}</td></tr>`
-        ).join('')}</tbody>
-      </table></div>`
-    : '<div class="sin-datos">Aún no hay gastos registrados este año.</div>';
+// ─────────────────────────────────────────────────────────────
+// UTILIDADES
+// ─────────────────────────────────────────────────────────────
+function ss_() {
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
-/* ══════════ LOGIN ADMIN ══════════ */
-$('formAdmin').addEventListener('submit', async ev=>{
-  ev.preventDefault();
-  const av = $('avisoAdmin');
-  aviso(av,'',''); $('btnAdminLogin').disabled = true;
-  try{
-    const adminHash = await hashAdmin($('passAdmin').value);
-    const r = await api({action:'adminLogin', adminHash});
-    if(!r.ok) throw new Error(r.error);
-    guardar('sesionAdminCuotas', {adminHash});
-    await cargarAdmin();
-  }catch(e){
-    aviso(av,'error', e.message||'No se pudo ingresar.');
-  }finally{ $('btnAdminLogin').disabled = false; }
-});
+function sha256Hex_(texto) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, texto, Utilities.Charset.UTF_8)
+    .map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); })
+    .join('');
+}
 
-/* ══════════ PANEL ADMIN ══════════ */
-async function cargarAdmin(){
-  const s = leer('sesionAdminCuotas');
-  if(!s) return mostrar('vista-admin-login');
-  mostrar('cargando');
-  try{
-    const d = await api({action:'adminDatos', adminHash:s.adminHash});
-    if(!d.ok) throw new Error(d.error);
-    pintarAdmin(d);
-    mostrar('vista-admin');
-  }catch(e){
-    borrar('sesionAdminCuotas');
-    mostrar('vista-admin-login');
-    aviso($('avisoAdmin'),'error', e.message||'Vuelve a ingresar.');
+/** minúsculas, sin tildes, espacios colapsados — igual que en el frontend */
+function norm_(s) {
+  return String(s == null ? '' : s)
+    .trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function leerTabla_(nombreHoja, columnaAncla) {
+  const sh = ss_().getSheetByName(nombreHoja);
+  if (!sh) return null;
+  const values = sh.getDataRange().getValues();
+  if (!values.length) return null;
+
+  let headerRow = 0;
+  const ancla = norm_(columnaAncla);
+  for (let r = 0; r < Math.min(5, values.length); r++) {
+    if (values[r].some(function (c) { return norm_(c).indexOf(ancla) !== -1; })) {
+      headerRow = r; break;
+    }
   }
-}
+  const headers = values[headerRow].map(norm_);
+  const rows = values.slice(headerRow + 1)
+    .filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
 
-function pintarAdmin(d){
-  $('fechaActAdmin').textContent = 'Actualizado: ' + (d.actualizado||'');
-  $('admRecaudado').textContent = clp(d.recaudado);
-  $('admGastos').textContent = clp(d.totalGastos);
-  $('admSaldoAnt').textContent = clp(d.saldoAnterior);
-  $('admSaldo').textContent = clp(d.saldoActual);
-
-  const totalCuotas = d.estado.length ? Math.max(...d.estado.map(a=>a.pagadas+a.pendientes)) : 0;
-  const alDia = d.estado.filter(a=>a.pendientes===0).length;
-  $('admResumenEstado').textContent = d.estado.length + ' alumnos · ' + alDia + ' con todo pagado';
-
-  $('admEstado').innerHTML = d.estado.map(a=>{
-    const tot = a.pagadas + a.pendientes;
-    const pill = a.pagadas===tot ? 'ok' : (a.pagadas>0 ? 'medio' : 'no');
-    return `<tr>
-      <td>${esc(a.nombre)}</td>
-      <td><span class="pill ${pill}">${a.pagadas} / ${tot}</span></td>
-      <td class="num">${clp(a.total)}</td>
-      <td>${a.cuenta ? '<span class="pill ok">Sí</span>' : '<span class="pill gris">No</span>'}</td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="4" class="sin-datos">Sin datos en la hoja Cuotas.</td></tr>';
-
-  $('admResumenCuentas').textContent = d.cuentas.length + ' registradas';
-  $('admCuentas').innerHTML = d.cuentas.map(c=>`<tr>
-      <td>${esc(c.alumno)}</td>
-      <td>${esc(c.apoderado)||'—'}</td>
-      <td>${esc(c.fecha)}</td>
-      <td style="text-align:right">
-        <button class="btn-mini" data-alumno="${esc(c.alumno)}">Eliminar</button>
-      </td>
-    </tr>`).join('') || '<tr><td colspan="4" class="sin-datos">Aún no hay apoderados registrados.</td></tr>';
-
-  document.querySelectorAll('#admCuentas .btn-mini').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const alumno = btn.getAttribute('data-alumno');
-      if(!confirm('¿Eliminar la cuenta de ' + alumno + '?\n\nEl apoderado deberá registrarse de nuevo con una contraseña nueva.')) return;
-      btn.disabled = true;
-      const av = $('avisoAdmCuentas');
-      try{
-        const s = leer('sesionAdminCuotas');
-        const r = await api({action:'adminEliminar', adminHash:s.adminHash, alumno});
-        if(!r.ok) throw new Error(r.error);
-        aviso(av,'exito', r.mensaje||'Cuenta eliminada.');
-        await cargarAdmin();
-        cargarAlumnos(); // refresca los selectores del login
-      }catch(e){
-        aviso(av,'error', e.message||'No se pudo eliminar.');
-        btn.disabled = false;
+  function idx() {
+    for (let a = 0; a < arguments.length; a++) {
+      const t = norm_(arguments[a]);
+      for (let i = 0; i < headers.length; i++) {
+        if (headers[i].indexOf(t) !== -1) return i;
       }
+    }
+    return -1;
+  }
+  return { headers: headers, rows: rows, idx: idx, sheet: sh };
+}
+
+function aNumero_(v) {
+  if (typeof v === 'number') return v;
+  const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.').replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function aFecha_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  }
+  return String(v || '').trim();
+}
+
+function esPagada_(estado) {
+  return norm_(estado).indexOf('pagad') === 0;
+}
+
+function ahora_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+}
+
+// ─────────────────────────────────────────────────────────────
+// ALUMNOS Y USUARIOS
+// ─────────────────────────────────────────────────────────────
+function listaNombresAlumnos_() {
+  let nombres = [];
+  const tA = leerTabla_(HOJA_ALUMNOS, 'nombre');
+  if (tA) {
+    const i = tA.idx('nombre');
+    if (i !== -1) nombres = tA.rows.map(function (r) { return String(r[i]).trim(); });
+  }
+  if (!nombres.length) {
+    const tC = leerTabla_(HOJA_CUOTAS, 'nombre alumno');
+    if (tC) {
+      const i = tC.idx('nombre alumno', 'alumno', 'nombre');
+      if (i !== -1) nombres = tC.rows.map(function (r) { return String(r[i]).trim(); });
+    }
+  }
+  const vistos = {};
+  return nombres.filter(function (n) {
+    const k = norm_(n);
+    if (!n || vistos[k]) return false;
+    vistos[k] = true;
+    return true;
+  });
+}
+
+/** Busca el nombre canónico en la lista oficial a partir de lo que escribió el apoderado */
+function buscarAlumnoOficial_(escrito) {
+  const k = norm_(escrito);
+  if (!k) return null;
+  const lista = listaNombresAlumnos_();
+  for (let i = 0; i < lista.length; i++) {
+    if (norm_(lista[i]) === k) return lista[i];
+  }
+  return null;
+}
+
+function hojaUsuarios_() {
+  const ss = ss_();
+  let sh = ss.getSheetByName(HOJA_USUARIOS);
+  if (!sh) {
+    sh = ss.insertSheet(HOJA_USUARIOS);
+    sh.appendRow(['Fecha Registro', 'Alumno', 'Apoderado', 'Hash']);
+    sh.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#14604A').setFontColor('#FFFFFF');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function buscarUsuario_(alumno) {
+  const sh = hojaUsuarios_();
+  const data = sh.getDataRange().getValues();
+  const k = norm_(alumno);
+  for (let r = 1; r < data.length; r++) {
+    if (norm_(data[r][1]) === k) {
+      return { fila: r + 1, alumno: String(data[r][1]), apoderado: String(data[r][2] || ''), hash: String(data[r][3] || '') };
+    }
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACCIONES APODERADO
+// ─────────────────────────────────────────────────────────────
+function accionRegistro(p) {
+  const escrito = String(p.alumno || '').trim();
+  const hash = String(p.hash || '').trim();
+  const apoderado = String(p.apoderado || '').trim();
+
+  if (!escrito || !/^[a-f0-9]{64}$/i.test(hash)) {
+    return { ok: false, error: 'Datos de registro incompletos' };
+  }
+
+  const canonico = buscarAlumnoOficial_(escrito);
+  if (!canonico) {
+    return { ok: false, error: 'No encontramos ese nombre en la lista del curso. Escríbelo completo, tal como está inscrito (nombre y apellidos). Si el problema persiste, contacta a la tesorería.' };
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    if (buscarUsuario_(canonico)) {
+      return { ok: false, error: 'Este alumno ya tiene una cuenta creada. Si olvidaste la contraseña, contacta a la tesorería del curso.' };
+    }
+    hojaUsuarios_().appendRow([new Date(), canonico, apoderado, hash.toLowerCase()]);
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: true, alumno: canonico, mensaje: 'Cuenta creada' };
+}
+
+function validarCredenciales_(p) {
+  const alumno = String(p.alumno || '').trim();
+  const hash = String(p.hash || '').trim().toLowerCase();
+  if (!alumno || !hash) return null;
+  const u = buscarUsuario_(alumno);
+  if (!u || u.hash.toLowerCase() !== hash) return null;
+  return u;
+}
+
+function accionLogin(p) {
+  const u = validarCredenciales_(p);
+  if (!u) return { ok: false, error: 'Nombre o contraseña incorrectos. Revisa que el nombre esté escrito igual que al registrarte.' };
+  return { ok: true, alumno: u.alumno, apoderado: u.apoderado };
+}
+
+// ─────────────────────────────────────────────────────────────
+// CÁLCULO DE FONDOS (compartido)
+// ─────────────────────────────────────────────────────────────
+function calcularFondos_() {
+  let gastos = [];
+  let totalGastos = 0;
+  const tG = leerTabla_(HOJA_GASTOS, 'monto');
+  if (tG) {
+    const gMonto = tG.idx('monto', 'valor', 'total');
+    const gDet = tG.idx('detalle', 'descrip', 'concepto', 'gasto', 'item', 'ítem');
+    const gFecha = tG.idx('fecha');
+    if (gMonto !== -1) {
+      gastos = tG.rows.map(function (r) {
+        const m = aNumero_(r[gMonto]);
+        totalGastos += m;
+        return {
+          fecha: gFecha !== -1 ? aFecha_(r[gFecha]) : '',
+          detalle: gDet !== -1 ? String(r[gDet] || '').trim() : '',
+          monto: m
+        };
+      }).filter(function (g) { return g.monto !== 0 || g.detalle; });
+    }
+  }
+
+  let saldoAnterior = 0;
+  const shR = ss_().getSheetByName(HOJA_RESUMEN);
+  if (shR) {
+    const vals = shR.getDataRange().getValues();
+    outer:
+    for (let r = 0; r < vals.length; r++) {
+      for (let c = 0; c < vals[r].length; c++) {
+        const t = norm_(vals[r][c]);
+        if (t.indexOf('saldo') !== -1 && t.indexOf('anterior') !== -1) {
+          for (let c2 = c + 1; c2 < vals[r].length; c2++) {
+            const n = aNumero_(vals[r][c2]);
+            if (n !== 0 || String(vals[r][c2]).trim() !== '') { saldoAnterior = n; break; }
+          }
+          break outer;
+        }
+      }
+    }
+  }
+  return { gastos: gastos, totalGastos: totalGastos, saldoAnterior: saldoAnterior };
+}
+
+// ─────────────────────────────────────────────────────────────
+// DATOS DEL APODERADO
+// ─────────────────────────────────────────────────────────────
+function accionDatos(p) {
+  const u = validarCredenciales_(p);
+  if (!u) return { ok: false, error: 'Sesión no válida. Vuelve a ingresar.' };
+
+  const tC = leerTabla_(HOJA_CUOTAS, 'nombre alumno');
+  if (!tC) return { ok: false, error: 'No se encontró la hoja Cuotas' };
+  const iNom = tC.idx('nombre alumno', 'alumno');
+  const iMes = tC.idx('mes');
+  const iMonto = tC.idx('monto');
+  const iEstado = tC.idx('estado');
+  const iMetodo = tC.idx('metodo', 'método');
+  const iFecha = tC.idx('fecha');
+
+  const kAlumno = norm_(u.alumno);
+  const misCuotas = [];
+  let recaudadoCurso = 0;
+  let misPagos = 0;
+
+  tC.rows.forEach(function (r) {
+    const monto = aNumero_(r[iMonto]);
+    const pagada = esPagada_(r[iEstado]);
+    if (pagada) recaudadoCurso += monto;
+
+    if (norm_(r[iNom]) === kAlumno) {
+      if (pagada) misPagos += monto;
+      misCuotas.push({
+        mes: String(r[iMes] || '').trim(),
+        monto: monto,
+        estado: pagada ? 'Pagada' : 'Pendiente',
+        metodo: iMetodo !== -1 ? String(r[iMetodo] || '').trim() : '',
+        fecha: iFecha !== -1 ? aFecha_(r[iFecha]) : ''
+      });
+    }
+  });
+
+  misCuotas.sort(function (a, b) {
+    return MESES_ORDEN.indexOf(norm_(a.mes)) - MESES_ORDEN.indexOf(norm_(b.mes));
+  });
+
+  const f = calcularFondos_();
+
+  return {
+    ok: true,
+    alumno: u.alumno,
+    apoderado: u.apoderado,
+    cuotas: misCuotas,
+    misPagos: misPagos,
+    recaudado: recaudadoCurso,
+    totalGastos: f.totalGastos,
+    gastos: f.gastos,
+    saldoAnterior: f.saldoAnterior,
+    saldoActual: f.saldoAnterior + recaudadoCurso - f.totalGastos,
+    actualizado: ahora_()
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// ADMINISTRADOR
+// ─────────────────────────────────────────────────────────────
+function validarAdmin_(p) {
+  const guardado = PropertiesService.getScriptProperties().getProperty('ADMIN_HASH');
+  const hash = String(p.adminHash || '').trim().toLowerCase();
+  return !!guardado && !!hash && guardado.toLowerCase() === hash;
+}
+
+function accionAdminLogin(p) {
+  if (!PropertiesService.getScriptProperties().getProperty('ADMIN_HASH')) {
+    return { ok: false, error: 'Falta configurar la clave: ejecuta configurarAdmin() en el editor de Apps Script.' };
+  }
+  if (!validarAdmin_(p)) return { ok: false, error: 'Clave de administrador incorrecta' };
+  return { ok: true };
+}
+
+function accionAdminDatos(p) {
+  if (!validarAdmin_(p)) return { ok: false, error: 'Sesión de administrador no válida' };
+
+  const tC = leerTabla_(HOJA_CUOTAS, 'nombre alumno');
+  if (!tC) return { ok: false, error: 'No se encontró la hoja Cuotas' };
+  const iNom = tC.idx('nombre alumno', 'alumno');
+  const iMonto = tC.idx('monto');
+  const iEstado = tC.idx('estado');
+
+  const porAlumno = {};
+  let recaudado = 0;
+
+  tC.rows.forEach(function (r) {
+    const nombre = String(r[iNom] || '').trim();
+    if (!nombre) return;
+    const k = norm_(nombre);
+    if (!porAlumno[k]) porAlumno[k] = { nombre: nombre, pagadas: 0, pendientes: 0, total: 0 };
+    if (esPagada_(r[iEstado])) {
+      const m = aNumero_(r[iMonto]);
+      porAlumno[k].pagadas++;
+      porAlumno[k].total += m;
+      recaudado += m;
+    } else {
+      porAlumno[k].pendientes++;
+    }
+  });
+
+  const data = hojaUsuarios_().getDataRange().getValues();
+  const cuentas = [];
+  const tieneCuenta = {};
+  for (let r = 1; r < data.length; r++) {
+    const alumno = String(data[r][1] || '').trim();
+    if (!alumno) continue;
+    tieneCuenta[norm_(alumno)] = true;
+    cuentas.push({
+      alumno: alumno,
+      apoderado: String(data[r][2] || ''),
+      fecha: aFecha_(data[r][0])
+    });
+  }
+
+  const estado = Object.keys(porAlumno).map(function (k) {
+    const a = porAlumno[k];
+    return {
+      nombre: a.nombre,
+      pagadas: a.pagadas,
+      pendientes: a.pendientes,
+      total: a.total,
+      cuenta: !!tieneCuenta[k]
     };
-  });
+  }).sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+
+  const f = calcularFondos_();
+
+  return {
+    ok: true,
+    estado: estado,
+    cuentas: cuentas,
+    recaudado: recaudado,
+    totalGastos: f.totalGastos,
+    saldoAnterior: f.saldoAnterior,
+    saldoActual: f.saldoAnterior + recaudado - f.totalGastos,
+    actualizado: ahora_()
+  };
 }
 
-/* ══════════ SALIR ══════════ */
-$('btnSalir').onclick = ()=>{
-  const eraAdmin = $('vista-admin').style.display==='block';
-  borrar('sesionCuotas'); borrar('sesionAdminCuotas');
-  $('passLogin').value=''; $('passAdmin').value='';
-  aviso($('avisoLogin'),'',''); aviso($('avisoAdmin'),'','');
-  mostrar(eraAdmin ? 'vista-admin-login' : 'vista-login');
-};
+function accionAdminEliminar(p) {
+  if (!validarAdmin_(p)) return { ok: false, error: 'Sesión de administrador no válida' };
+  const alumno = String(p.alumno || '').trim();
+  if (!alumno) return { ok: false, error: 'Falta el nombre del alumno' };
 
-/* ══════════ PWA: SERVICE WORKER + INSTALACIÓN ══════════ */
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const u = buscarUsuario_(alumno);
+    if (!u) return { ok: false, error: 'No existe una cuenta para ese alumno' };
+    hojaUsuarios_().deleteRow(u.fila);
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: true, mensaje: 'Cuenta eliminada. El apoderado puede registrarse nuevamente.' };
 }
-let promptInstalar = null;
-window.addEventListener('beforeinstallprompt', e=>{
-  e.preventDefault();
-  promptInstalar = e;
-  $('btnInstalar').style.display = 'inline-block';
-});
-$('btnInstalar').onclick = async ()=>{
-  if(!promptInstalar) return;
-  promptInstalar.prompt();
-  await promptInstalar.userChoice;
-  promptInstalar = null;
-  $('btnInstalar').style.display = 'none';
-};
-window.addEventListener('appinstalled', ()=>{ $('btnInstalar').style.display='none'; });
-
-/* ══════════ INICIO ══════════ */
-(function init(){
-  mostrar('vista-login');
-  cargarAlumnos();
-  if(leer('sesionAdminCuotas')) cargarAdmin();
-  else if(leer('sesionCuotas')) cargarPanel();
-})();
-</script>
-</body>
-</html>
