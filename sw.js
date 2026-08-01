@@ -5,7 +5,7 @@
  *    para que los datos de cuotas estén al día.
  * Sube CACHE_VERSION cada vez que publiques cambios del index.html.
  */
-const CACHE_VERSION = 'cuotas-v5';
+const CACHE_VERSION = 'cuotas-v6';
 const APP_SHELL = [
   './',
   './index.html',
