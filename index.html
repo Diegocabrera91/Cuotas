@@ -97,12 +97,105 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
   border-radius:10px;padding:11px 16px;font-size:.9rem;font-weight:700;flex:1;min-width:180px;
 }
 .btn-secundario:hover{background:#D2E8DB}
-.filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .filtros button{
   background:none;border:1px solid var(--linea);border-radius:20px;
   padding:5px 14px;font-size:.8rem;font-weight:600;color:var(--tinta-suave);
 }
 .filtros button.activa{background:var(--verde);border-color:var(--verde);color:#fff}
+
+/* Navegador de alumnos */
+.navegador{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.nav-flecha{
+  flex:0 0 auto;width:40px;height:40px;border-radius:50%;
+  border:1px solid var(--linea);background:#FCFBF7;color:var(--verde);
+  font-size:1.5rem;line-height:1;display:flex;align-items:center;justify-content:center;
+}
+.nav-flecha:hover{background:var(--verde-suave)}
+.nav-flecha:disabled{opacity:.35;cursor:default}
+.nav-centro{flex:1;text-align:center;min-width:0}
+.nav-nombre{
+  font-family:var(--f-display);font-weight:800;font-size:1.1rem;line-height:1.2;
+  overflow-wrap:break-word;
+}
+.nav-sub{font-size:.8rem;color:var(--tinta-suave);margin-top:2px}
+
+/* Calendario de meses */
+.calendario{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media(max-width:460px){.calendario{grid-template-columns:repeat(3,1fr)}}
+.mes-celda{
+  border:1px solid var(--linea);border-radius:10px;background:#FCFBF7;
+  padding:9px 6px;text-align:center;transition:transform .1s;
+}
+.mes-celda:hover{transform:translateY(-2px)}
+.mes-celda .m-nom{
+  font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--tinta-suave);
+}
+.mes-celda .m-monto{
+  font-family:var(--f-display);font-weight:800;font-size:.95rem;
+  font-variant-numeric:tabular-nums;margin-top:3px;
+}
+.mes-celda.pagado{background:var(--verde-suave);border-color:#8FC7A8}
+.mes-celda.pagado .m-nom{color:var(--verde-osc)}
+.mes-celda.pagado .m-monto{color:var(--verde-sello)}
+.mes-celda.pendiente{background:var(--rojo-suave);border-color:#EFC2BD}
+.mes-celda.pendiente .m-nom{color:var(--rojo)}
+.mes-celda.pendiente .m-monto{color:var(--rojo);font-size:.82rem;font-weight:600}
+.mes-celda.sel{outline:2px solid var(--verde);outline-offset:1px}
+
+.leyenda{
+  display:flex;flex-wrap:wrap;align-items:center;gap:14px;
+  margin-top:12px;font-size:.78rem;color:var(--tinta-suave);
+}
+.leyenda .cuadro{
+  display:inline-block;width:11px;height:11px;border-radius:3px;
+  margin-right:5px;vertical-align:-1px;
+}
+.leyenda .cuadro.pagado{background:var(--verde-suave);border:1px solid #8FC7A8}
+.leyenda .cuadro.pendiente{background:var(--rojo-suave);border:1px solid #EFC2BD}
+.leyenda .pista{margin-left:auto;font-style:italic}
+
+.ficha-resumen{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+  margin-top:14px;padding-top:14px;border-top:1px dashed var(--linea);
+}
+.ficha-resumen .etiq{
+  display:block;font-size:.68rem;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--tinta-suave);
+}
+.ficha-resumen b{
+  font-family:var(--f-display);font-weight:800;font-size:1rem;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Panel de pago desplegable */
+.panel-pago{display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--linea)}
+.panel-pago.abierto{display:block}
+.panel-pago-titulo{font-weight:700;margin-bottom:10px;font-size:.92rem}
+.acciones-pago{display:flex;gap:10px;align-items:center;justify-content:flex-end}
+.acciones-pago .btn-principal{flex:0 0 auto;padding:11px 20px}
+.btn-texto{background:none;border:none;color:var(--tinta-suave);font-size:.88rem;font-weight:600;text-decoration:underline}
+.btn-texto:hover{color:var(--verde)}
+
+/* Carril de alumnos */
+.carril{
+  display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  margin-top:16px;padding:12px 2px 4px;border-top:1px dashed var(--linea);
+}
+.carril button{
+  flex:0 0 auto;border:1px solid var(--linea);background:#FCFBF7;border-radius:8px;
+  padding:6px 10px;font-size:.76rem;font-weight:600;color:var(--tinta-suave);white-space:nowrap;
+}
+.carril button .punto{
+  display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:0;
+}
+.carril button .punto.ok{background:var(--verde-sello)}
+.carril button .punto.debe{background:var(--rojo)}
+.carril button.activa{background:var(--verde);border-color:var(--verde);color:#fff}
+.carril button.activa .punto.ok{background:#fff}
+.carril button.activa .punto.debe{background:#FFC9C4}
+
 .meses-deuda{font-size:.78rem;color:var(--tinta-suave);margin-top:2px}
 .btn-principal{
   background:var(--verde);color:#fff;border:none;border-radius:10px;
@@ -356,35 +449,66 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
     </div>
 
     <div class="bloque">
-      <h3>Registrar pago</h3>
-      <div class="aviso" id="avisoPago" style="margin-bottom:12px"></div>
-      <form id="formPago" class="form-pago" autocomplete="off">
-        <div class="ancho">
-          <label for="selAlumnoPago">Alumno(a)</label>
-          <select id="selAlumnoPago" required><option value="">— Selecciona —</option></select>
+      <h3>Ficha del alumno <small id="admPosicion"></small></h3>
+
+      <div class="filtros">
+        <button data-filtro="todos" class="activa">Todos</button>
+        <button data-filtro="deben">Con deuda</button>
+        <button data-filtro="aldia">Al día</button>
+      </div>
+
+      <div class="navegador">
+        <button class="nav-flecha" id="btnPrev" aria-label="Alumno anterior">‹</button>
+        <div class="nav-centro">
+          <div class="nav-nombre" id="fichaNombre">—</div>
+          <div class="nav-sub" id="fichaSub"></div>
         </div>
-        <div>
-          <label for="selMesPago">Mes</label>
-          <select id="selMesPago" required><option value="">—</option></select>
-        </div>
-        <div>
-          <label for="montoPago">Monto</label>
-          <input type="number" id="montoPago" min="0" step="1" placeholder="3000">
-        </div>
-        <div>
-          <label for="metodoPago">Método de pago</label>
-          <input list="listaMetodos" id="metodoPago" value="Transferencia">
-          <datalist id="listaMetodos">
-            <option>Transferencia</option>
-            <option>Efectivo</option>
-          </datalist>
-        </div>
-        <div>
-          <label for="fechaPago">Fecha del pago</label>
-          <input type="date" id="fechaPago">
-        </div>
-        <button type="submit" class="btn-principal ancho" id="btnPago">Registrar pago</button>
-      </form>
+        <button class="nav-flecha" id="btnNext" aria-label="Alumno siguiente">›</button>
+      </div>
+
+      <div class="calendario" id="calendario"></div>
+
+      <div class="leyenda">
+        <span><i class="cuadro pagado"></i> Pagado</span>
+        <span><i class="cuadro pendiente"></i> Pendiente</span>
+        <span class="pista">Toca un mes para registrar o anular el pago</span>
+      </div>
+
+      <div class="ficha-resumen">
+        <div><span class="etiq">Pagado</span><b id="fichaTotal">$0</b></div>
+        <div><span class="etiq">Cuotas al día</span><b id="fichaCuotas">0 / 0</b></div>
+        <div><span class="etiq">Cuenta creada</span><b id="fichaCuenta">—</b></div>
+      </div>
+
+      <div class="aviso" id="avisoPago" style="margin-top:14px"></div>
+
+      <div id="panelPago" class="panel-pago">
+        <div class="panel-pago-titulo" id="panelPagoTitulo"></div>
+        <form id="formPago" class="form-pago" autocomplete="off">
+          <div>
+            <label for="montoPago">Monto</label>
+            <input type="number" id="montoPago" min="0" step="1" placeholder="3000">
+          </div>
+          <div>
+            <label for="metodoPago">Método de pago</label>
+            <input list="listaMetodos" id="metodoPago" value="Transferencia">
+            <datalist id="listaMetodos">
+              <option>Transferencia</option>
+              <option>Efectivo</option>
+            </datalist>
+          </div>
+          <div>
+            <label for="fechaPago">Fecha del pago</label>
+            <input type="date" id="fechaPago">
+          </div>
+          <div class="acciones-pago ancho">
+            <button type="button" class="btn-texto" id="btnCancelarPago">Cancelar</button>
+            <button type="submit" class="btn-principal" id="btnPago">Registrar pago</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="carril" id="carril"></div>
     </div>
 
     <div class="bloque">
@@ -392,23 +516,6 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
       <div class="acciones-informe">
         <button class="btn-secundario" id="btnInfMorosos">Descargar morosidad</button>
         <button class="btn-secundario" id="btnInfCartola">Descargar cartola completa</button>
-      </div>
-    </div>
-
-    <div class="bloque">
-      <h3>Estado de pagos por alumno <small id="admResumenEstado"></small></h3>
-      <div class="filtros">
-        <button data-filtro="todos" class="activa">Todos</button>
-        <button data-filtro="deben">Con deuda</button>
-        <button data-filtro="aldia">Al día</button>
-      </div>
-      <div class="scroll-x">
-        <table class="tabla">
-          <thead><tr>
-            <th>Alumno</th><th>Cuotas</th><th style="text-align:right">Pagado</th><th>Cuenta</th>
-          </tr></thead>
-          <tbody id="admEstado"></tbody>
-        </table>
       </div>
     </div>
 
@@ -620,6 +727,26 @@ async function cargarAdmin(){
 
 let estadoAdmin = [];
 let montoSugerido = 0;
+let indiceFicha = 0;
+let filtroEstado = 'todos';
+let mesSeleccionado = null;
+
+function listaFiltrada(){
+  return estadoAdmin.filter(a=>
+    filtroEstado==='deben' ? a.pendientes>0 :
+    filtroEstado==='aldia' ? a.pendientes===0 : true
+  );
+}
+function alumnoActual(){
+  const l = listaFiltrada();
+  if(!l.length) return null;
+  if(indiceFicha >= l.length) indiceFicha = l.length - 1;
+  if(indiceFicha < 0) indiceFicha = 0;
+  return l[indiceFicha];
+}
+function mesesPendientes(a){
+  return (a.meses||[]).filter(m=>m.estado!=='Pagada').map(m=>m.mes);
+}
 
 function pintarAdmin(d){
   estadoAdmin = d.estado || [];
@@ -631,23 +758,7 @@ function pintarAdmin(d){
   $('admSaldoAnt').textContent = clp(d.saldoAnterior);
   $('admSaldo').textContent = clp(d.saldoActual);
 
-  // Formulario de pago
-  const selA = $('selAlumnoPago');
-  const previo = selA.value;
-  selA.innerHTML = '<option value="">— Selecciona —</option>' +
-    estadoAdmin.map(a=>`<option value="${esc(a.nombre)}">${esc(a.nombre)}</option>`).join('');
-  if (previo && estadoAdmin.some(a=>a.nombre===previo)) selA.value = previo;
-  llenarMesesPago();
-  if(!$('fechaPago').value){
-    const hoy = new Date();
-    $('fechaPago').value = hoy.getFullYear() + '-' +
-      String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
-  }
-  if(!$('montoPago').value && montoSugerido) $('montoPago').value = montoSugerido;
-
-  const alDia = d.estado.filter(a=>a.pendientes===0).length;
-  $('admResumenEstado').textContent = d.estado.length + ' alumnos · ' + alDia + ' con todo pagado';
-  pintarTablaEstado();
+  pintarFicha();
 
   $('admResumenCuentas').textContent = d.cuentas.length + ' registradas';
   $('admCuentas').innerHTML = d.cuentas.map(c=>`<tr>
@@ -679,100 +790,136 @@ function pintarAdmin(d){
   });
 }
 
-/* ── Registrar / anular pagos ── */
-function alumnoSeleccionadoPago(){
-  return estadoAdmin.find(a => a.nombre === $('selAlumnoPago').value) || null;
-}
-function llenarMesesPago(){
-  const a = alumnoSeleccionadoPago();
-  const sel = $('selMesPago');
-  if(!a){ sel.innerHTML = '<option value="">—</option>'; actualizarBotonPago(); return; }
-  sel.innerHTML = a.meses.map(m=>
-    `<option value="${esc(m.mes)}" data-estado="${m.estado}">${esc(m.mes)} — ${m.estado}</option>`
-  ).join('') || '<option value="">Sin cuotas</option>';
-  // Preseleccionar el primer mes pendiente
-  const pendiente = a.meses.find(m=>m.estado==='Pendiente');
-  if(pendiente) sel.value = pendiente.mes;
-  actualizarBotonPago();
-}
-function mesSeleccionadoPagado(){
-  const op = $('selMesPago').selectedOptions[0];
-  return !!op && op.getAttribute('data-estado')==='Pagada';
-}
-function actualizarBotonPago(){
-  const anular = mesSeleccionadoPagado();
-  const btn = $('btnPago');
-  btn.textContent = anular ? 'Anular pago' : 'Registrar pago';
-  btn.classList.toggle('btn-anular', anular);
-  ['montoPago','metodoPago','fechaPago'].forEach(id=>{ $(id).disabled = anular; });
-}
-$('selAlumnoPago').addEventListener('change', llenarMesesPago);
-$('selMesPago').addEventListener('change', actualizarBotonPago);
+/* ── Ficha del alumno con calendario ── */
+function pintarFicha(){
+  const lista = listaFiltrada();
+  const a = alumnoActual();
+  const alDia = estadoAdmin.filter(x=>x.pendientes===0).length;
+  $('admPosicion').textContent = estadoAdmin.length + ' alumnos · ' + alDia + ' al día';
 
-$('formPago').addEventListener('submit', async ev=>{
-  ev.preventDefault();
-  const av = $('avisoPago');
-  const alumno = $('selAlumnoPago').value;
-  const mes = $('selMesPago').value;
-  if(!alumno || !mes) return aviso(av,'error','Selecciona alumno y mes.');
-  const anular = mesSeleccionadoPagado();
-  const params = {action:'adminPago', alumno, mes, operacion: anular?'anular':'pagar'};
-  if(!anular){
-    const monto = Number($('montoPago').value);
-    if(!monto || monto<=0) return aviso(av,'error','Ingresa el monto del pago.');
-    params.monto = monto;
-    params.metodo = $('metodoPago').value.trim();
-    params.fecha = $('fechaPago').value;
-  } else if(!confirm('¿Anular el pago de ' + mes + ' de ' + alumno + '?\n\nLa cuota volverá a Pendiente y el monto quedará en 0.')){
+  if(!a){
+    $('fichaNombre').textContent = 'Sin alumnos en esta vista';
+    $('fichaSub').textContent = '';
+    $('calendario').innerHTML = '';
+    $('carril').innerHTML = '';
+    $('btnPrev').disabled = $('btnNext').disabled = true;
+    cerrarPanelPago();
     return;
   }
-  aviso(av,'',''); $('btnPago').disabled = true;
-  try{
-    const s = leer('sesionAdminCuotas');
-    params.adminHash = s.adminHash;
-    const r = await api(params);
-    if(!r.ok) throw new Error(r.error);
-    aviso(av,'exito', r.mensaje||'Listo.');
-    await cargarAdmin(); // refresca chips, tablas y el propio formulario
-  }catch(e){
-    aviso(av,'error', e.message||'No se pudo registrar el pago.');
-  }finally{ $('btnPago').disabled = false; }
-});
 
-/* ── Tabla de estado con filtros ── */
-let filtroEstado = 'todos';
+  $('btnPrev').disabled = indiceFicha === 0;
+  $('btnNext').disabled = indiceFicha >= lista.length - 1;
+  $('fichaNombre').textContent = a.nombre;
+  $('fichaSub').textContent = (indiceFicha+1) + ' de ' + lista.length +
+    (a.pendientes ? ' · debe ' + a.pendientes + (a.pendientes===1?' cuota':' cuotas') : ' · al día');
 
-function mesesPendientes(a){
-  return (a.meses||[]).filter(m=>m.estado!=='Pagada').map(m=>m.mes);
+  const tot = a.pagadas + a.pendientes;
+  $('fichaTotal').textContent = clp(a.total);
+  $('fichaCuotas').textContent = a.pagadas + ' / ' + tot;
+  $('fichaCuenta').textContent = a.cuenta ? 'Sí' : 'No';
+
+  $('calendario').innerHTML = (a.meses||[]).map(m=>{
+    const ok = m.estado==='Pagada';
+    const sel = mesSeleccionado===m.mes ? ' sel' : '';
+    return `<button type="button" class="mes-celda ${ok?'pagado':'pendiente'}${sel}" data-mes="${esc(m.mes)}">
+      <div class="m-nom">${esc(String(m.mes).slice(0,3))}</div>
+      <div class="m-monto">${ok ? clp(m.monto) : 'Pendiente'}</div>
+    </button>`;
+  }).join('') || '<div class="sin-datos">Este alumno no tiene cuotas en la hoja.</div>';
+
+  document.querySelectorAll('#calendario .mes-celda').forEach(c=>{
+    c.onclick = ()=> abrirPanelPago(c.getAttribute('data-mes'));
+  });
+
+  $('carril').innerHTML = lista.map((x,i)=>
+    `<button type="button" data-i="${i}" class="${i===indiceFicha?'activa':''}">
+      <span class="punto ${x.pendientes?'debe':'ok'}"></span>${esc(x.nombre.split(' ').slice(0,2).join(' '))}
+    </button>`).join('');
+  document.querySelectorAll('#carril button').forEach(b=>{
+    b.onclick = ()=>{ indiceFicha = Number(b.getAttribute('data-i')); mesSeleccionado=null; cerrarPanelPago(); pintarFicha(); };
+  });
+  const activo = document.querySelector('#carril button.activa');
+  if(activo) activo.scrollIntoView({block:'nearest', inline:'center'});
 }
 
-function pintarTablaEstado(){
-  const lista = estadoAdmin.filter(a=>
-    filtroEstado==='deben' ? a.pendientes>0 :
-    filtroEstado==='aldia' ? a.pendientes===0 : true
-  );
-  $('admEstado').innerHTML = lista.map(a=>{
-    const tot = a.pagadas + a.pendientes;
-    const pill = a.pagadas===tot ? 'ok' : (a.pagadas>0 ? 'medio' : 'no');
-    const deuda = mesesPendientes(a);
-    return `<tr>
-      <td>${esc(a.nombre)}
-        ${deuda.length ? `<div class="meses-deuda">Debe: ${esc(deuda.join(', '))}</div>` : ''}
-      </td>
-      <td><span class="pill ${pill}">${a.pagadas} / ${tot}</span></td>
-      <td class="num">${clp(a.total)}</td>
-      <td>${a.cuenta ? '<span class="pill ok">Sí</span>' : '<span class="pill gris">No</span>'}</td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="4" class="sin-datos">Sin alumnos en esta vista.</td></tr>';
-}
+$('btnPrev').onclick = ()=>{ indiceFicha--; mesSeleccionado=null; cerrarPanelPago(); pintarFicha(); };
+$('btnNext').onclick = ()=>{ indiceFicha++; mesSeleccionado=null; cerrarPanelPago(); pintarFicha(); };
 
 document.querySelectorAll('.filtros button').forEach(btn=>{
   btn.onclick = ()=>{
     document.querySelectorAll('.filtros button').forEach(b=>b.classList.remove('activa'));
     btn.classList.add('activa');
     filtroEstado = btn.getAttribute('data-filtro');
-    pintarTablaEstado();
+    indiceFicha = 0; mesSeleccionado = null; cerrarPanelPago();
+    pintarFicha();
   };
+});
+
+/* ── Registrar / anular pagos ── */
+function cerrarPanelPago(){
+  $('panelPago').classList.remove('abierto');
+  mesSeleccionado = null;
+  aviso($('avisoPago'),'','');
+}
+$('btnCancelarPago').onclick = ()=>{ cerrarPanelPago(); pintarFicha(); };
+
+function abrirPanelPago(mes){
+  const a = alumnoActual();
+  if(!a) return;
+  const dato = (a.meses||[]).find(m=>m.mes===mes);
+  if(!dato) return;
+  mesSeleccionado = mes;
+  aviso($('avisoPago'),'','');
+  const pagado = dato.estado==='Pagada';
+  const panel = $('panelPago');
+  panel.classList.add('abierto');
+  $('panelPagoTitulo').textContent = (pagado ? 'Anular el pago de ' : 'Registrar el pago de ') + mes + ' — ' + a.nombre;
+  $('btnPago').textContent = pagado ? 'Anular pago' : 'Registrar pago';
+  $('btnPago').classList.toggle('btn-anular', pagado);
+  ['montoPago','metodoPago','fechaPago'].forEach(id=>{ $(id).parentElement.style.display = pagado ? 'none' : ''; });
+  if(!pagado){
+    if(montoSugerido) $('montoPago').value = montoSugerido;
+    const hoy = new Date();
+    $('fechaPago').value = hoy.getFullYear() + '-' +
+      String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
+  }
+  pintarFicha();
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+$('formPago').addEventListener('submit', async ev=>{
+  ev.preventDefault();
+  const av = $('avisoPago');
+  const a = alumnoActual();
+  if(!a || !mesSeleccionado) return;
+  const dato = (a.meses||[]).find(m=>m.mes===mesSeleccionado);
+  const anular = dato && dato.estado==='Pagada';
+  const params = {action:'adminPago', alumno:a.nombre, mes:mesSeleccionado, operacion: anular?'anular':'pagar'};
+  if(!anular){
+    const monto = Number($('montoPago').value);
+    if(!monto || monto<=0) return aviso(av,'error','Ingresa el monto del pago.');
+    params.monto = monto;
+    params.metodo = $('metodoPago').value.trim();
+    params.fecha = $('fechaPago').value;
+  } else if(!confirm('¿Anular el pago de ' + mesSeleccionado + ' de ' + a.nombre + '?\n\nLa cuota volverá a Pendiente y el monto quedará en 0.')){
+    return;
+  }
+  aviso(av,'',''); $('btnPago').disabled = true;
+  const nombreActual = a.nombre;
+  try{
+    const s = leer('sesionAdminCuotas');
+    params.adminHash = s.adminHash;
+    const r = await api(params);
+    if(!r.ok) throw new Error(r.error);
+    cerrarPanelPago();
+    await cargarAdmin();
+    // mantener al mismo alumno en pantalla tras refrescar
+    const idx = listaFiltrada().findIndex(x=>x.nombre===nombreActual);
+    if(idx !== -1){ indiceFicha = idx; pintarFicha(); }
+    aviso($('avisoPago'),'exito', r.mensaje||'Listo.');
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo registrar el pago.');
+  }finally{ $('btnPago').disabled = false; }
 });
 
 /* ── Informes descargables (CSV) ── */
