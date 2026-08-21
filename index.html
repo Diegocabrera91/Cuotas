@@ -306,6 +306,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
 }
 .btn-mini:hover{background:var(--rojo-suave)}
 .btn-mini:disabled{opacity:.5;cursor:wait}
+.btn-mini.verde{border-color:var(--verde);color:var(--verde)}
+.btn-mini.verde:hover{background:var(--verde-suave)}
 .scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
 /* ── Cargando ───────────────────────────────────────── */
@@ -419,6 +421,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
       </div>
     </div>
 
+    <div class="libreta" id="bloqueRecaudacionesApoderado" style="display:none">
+      <h3>Otras recaudaciones</h3>
+      <div class="talones" id="talonesRecaudaciones"></div>
+    </div>
+
     <div class="bloque">
       <h3>Fondos del curso</h3>
       <div class="linea-cuenta"><span>Saldo año anterior</span><span class="monto" id="saldoAnterior">$0</span></div>
@@ -509,6 +516,69 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
       </div>
 
       <div class="carril" id="carril"></div>
+    </div>
+
+    <div class="bloque">
+      <h3>Recaudaciones <small id="recResumen"></small></h3>
+      <p class="ayuda" style="margin:-6px 0 10px;color:var(--tinta-suave);font-size:.85rem">
+        Crea una recaudación (paseo, regalo, actividad, etc.), define el monto sugerido y registra el pago de cada alumno con la misma lista del curso.
+      </p>
+
+      <form id="formNuevaRecaudacion" class="form-pago" autocomplete="off" style="margin-bottom:16px">
+        <div>
+          <label for="recNombre">Nombre de la recaudación</label>
+          <input type="text" id="recNombre" placeholder="Ej: Paseo fin de año">
+        </div>
+        <div>
+          <label for="recMonto">Monto sugerido por alumno</label>
+          <input type="number" id="recMonto" min="0" step="1" placeholder="15000">
+        </div>
+        <div class="acciones-pago ancho">
+          <button type="submit" class="btn-principal" id="btnCrearRecaudacion">Crear recaudación</button>
+        </div>
+      </form>
+
+      <div class="aviso" id="avisoRecaudaciones"></div>
+
+      <div class="filtros" id="recFiltros"></div>
+
+      <div id="recDetalle" style="display:none">
+        <div class="ficha-resumen" id="recTotales"></div>
+
+        <div class="scroll-x" style="margin-top:14px">
+          <table class="tabla">
+            <thead><tr><th>Alumno</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr></thead>
+            <tbody id="recAlumnos"></tbody>
+          </table>
+        </div>
+
+        <div id="panelPagoRec" class="panel-pago">
+          <div class="panel-pago-titulo" id="panelPagoRecTitulo"></div>
+          <form id="formPagoRec" class="form-pago" autocomplete="off">
+            <div>
+              <label for="montoPagoRec">Monto</label>
+              <input type="number" id="montoPagoRec" min="0" step="1">
+            </div>
+            <div>
+              <label for="metodoPagoRec">Método de pago</label>
+              <input list="listaMetodos" id="metodoPagoRec" value="Transferencia">
+            </div>
+            <div>
+              <label for="fechaPagoRec">Fecha del pago</label>
+              <input type="date" id="fechaPagoRec">
+            </div>
+            <div class="acciones-pago ancho">
+              <button type="button" class="btn-texto" id="btnCancelarPagoRec">Cancelar</button>
+              <button type="submit" class="btn-principal" id="btnPagoRec">Registrar pago</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="acciones-pago" style="margin-top:16px;justify-content:space-between">
+          <button type="button" class="btn-texto" id="btnCerrarRecaudacion"></button>
+          <button type="button" class="btn-mini" id="btnEliminarRecaudacion">Eliminar recaudación</button>
+        </div>
+      </div>
     </div>
 
     <div class="bloque">
@@ -677,6 +747,22 @@ function pintarPanel(d){
   }).join('') || '<div class="sin-datos">Aún no hay cuotas registradas para este alumno.</div>';
 
   $('misPagos').textContent = clp(d.misPagos);
+
+  if(d.misRecaudaciones && d.misRecaudaciones.length){
+    $('bloqueRecaudacionesApoderado').style.display = 'block';
+    $('talonesRecaudaciones').innerHTML = d.misRecaudaciones.map(r=>{
+      const ok = r.estado==='Pagada';
+      return `<div class="talon ${ok?'pagada':''}">
+        <span class="sello ${ok?'ok':'no'}">${ok?'PAGADA':'PENDIENTE'}</span>
+        <div class="mes">${esc(r.nombre)}</div>
+        <div class="monto">${ok?clp(r.monto):'—'}</div>
+        <div class="meta">${ok ? esc([r.fecha,r.metodo].filter(Boolean).join(' · ')) : '&nbsp;'}</div>
+      </div>`;
+    }).join('');
+  } else {
+    $('bloqueRecaudacionesApoderado').style.display = 'none';
+  }
+
   $('saldoAnterior').textContent = clp(d.saldoAnterior);
   $('recaudado').textContent = clp(d.recaudado);
   $('totalGastos').textContent = '−' + clp(d.totalGastos).replace('−','');
@@ -718,6 +804,7 @@ async function cargarAdmin(){
     if(!d.ok) throw new Error(d.error);
     pintarAdmin(d);
     mostrar('vista-admin');
+    cargarRecaudaciones();
   }catch(e){
     borrar('sesionAdminCuotas');
     mostrar('vista-admin-login');
@@ -921,6 +1008,198 @@ $('formPago').addEventListener('submit', async ev=>{
     aviso(av,'error', e.message||'No se pudo registrar el pago.');
   }finally{ $('btnPago').disabled = false; }
 });
+
+/* ── Recaudaciones (paseos, regalos, actividades, etc.) ── */
+let listaRecaudaciones = [];
+let recaudacionActual = null;
+let alumnosRecaudacion = [];
+let alumnoPagoRec = null;
+
+async function cargarRecaudaciones(){
+  const s = leer('sesionAdminCuotas');
+  if(!s) return;
+  try{
+    const d = await api({action:'adminListaRecaudaciones', adminHash:s.adminHash});
+    if(!d.ok) throw new Error(d.error);
+    listaRecaudaciones = d.recaudaciones || [];
+    pintarFiltrosRecaudaciones();
+    if(recaudacionActual && listaRecaudaciones.some(r=>r.nombre===recaudacionActual)){
+      await cargarDetalleRecaudacion(recaudacionActual);
+    }else{
+      recaudacionActual = null;
+      $('recDetalle').style.display = 'none';
+    }
+  }catch(e){
+    aviso($('avisoRecaudaciones'),'error', e.message||'No se pudieron cargar las recaudaciones.');
+  }
+}
+
+function pintarFiltrosRecaudaciones(){
+  $('recResumen').textContent = listaRecaudaciones.length
+    ? listaRecaudaciones.length + ' registrada' + (listaRecaudaciones.length===1?'':'s')
+    : '';
+  $('recFiltros').innerHTML = listaRecaudaciones.map(r=>
+    `<button type="button" data-nombre="${esc(r.nombre)}" class="${r.nombre===recaudacionActual?'activa':''}">
+      ${esc(r.nombre)}${r.estado==='Cerrada' ? ' (cerrada)' : ''} · ${r.pagados}/${r.totalAlumnos}
+    </button>`
+  ).join('') || '<span class="sin-datos">Aún no has creado ninguna recaudación.</span>';
+  document.querySelectorAll('#recFiltros button').forEach(btn=>{
+    btn.onclick = ()=> cargarDetalleRecaudacion(btn.getAttribute('data-nombre'));
+  });
+}
+
+async function cargarDetalleRecaudacion(nombre){
+  recaudacionActual = nombre;
+  pintarFiltrosRecaudaciones();
+  const s = leer('sesionAdminCuotas');
+  const av = $('avisoRecaudaciones');
+  aviso(av,'','');
+  try{
+    const d = await api({action:'adminDatosRecaudacion', adminHash:s.adminHash, recaudacion:nombre});
+    if(!d.ok) throw new Error(d.error);
+    alumnosRecaudacion = d.alumnos || [];
+    $('recDetalle').style.display = 'block';
+    $('recTotales').innerHTML = `
+      <div><span class="etiq">Recaudado</span><b>${clp(d.totales.recaudado)}</b></div>
+      <div><span class="etiq">Pagados</span><b>${d.totales.pagados} / ${d.totales.totalAlumnos}</b></div>
+      <div><span class="etiq">Monto sugerido</span><b>${clp(d.recaudacion.montoSugerido)}</b></div>
+    `;
+    $('btnCerrarRecaudacion').textContent = d.recaudacion.estado==='Cerrada' ? 'Reabrir recaudación' : 'Cerrar recaudación';
+    cerrarPanelPagoRec();
+    pintarTablaRecaudacion();
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo cargar la recaudación.');
+  }
+}
+
+function pintarTablaRecaudacion(){
+  $('recAlumnos').innerHTML = alumnosRecaudacion.map(a=>{
+    const ok = a.estado==='Pagada';
+    return `<tr>
+      <td>${esc(a.nombre)}</td>
+      <td><span class="pill ${ok?'ok':'no'}">${ok?'Pagado':'Pendiente'}</span></td>
+      <td class="num">${ok?clp(a.monto):'—'}</td>
+      <td style="text-align:right">
+        <button type="button" class="btn-mini ${ok?'':'verde'}" data-alumno="${esc(a.nombre)}">${ok?'Anular':'Registrar'}</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="sin-datos">No hay alumnos en esta recaudación.</td></tr>';
+
+  document.querySelectorAll('#recAlumnos .btn-mini').forEach(btn=>{
+    btn.onclick = ()=> abrirPanelPagoRec(btn.getAttribute('data-alumno'));
+  });
+}
+
+function cerrarPanelPagoRec(){
+  $('panelPagoRec').classList.remove('abierto');
+  alumnoPagoRec = null;
+}
+$('btnCancelarPagoRec').onclick = ()=> cerrarPanelPagoRec();
+
+function abrirPanelPagoRec(nombreAlumno){
+  const a = alumnosRecaudacion.find(x=>x.nombre===nombreAlumno);
+  if(!a) return;
+  alumnoPagoRec = nombreAlumno;
+  const pagado = a.estado==='Pagada';
+  const panel = $('panelPagoRec');
+  panel.classList.add('abierto');
+  $('panelPagoRecTitulo').textContent = (pagado ? 'Anular el pago de ' : 'Registrar el pago de ') + nombreAlumno + ' — ' + recaudacionActual;
+  $('btnPagoRec').textContent = pagado ? 'Anular pago' : 'Registrar pago';
+  $('btnPagoRec').classList.toggle('btn-anular', pagado);
+  ['montoPagoRec','metodoPagoRec','fechaPagoRec'].forEach(id=>{ $(id).parentElement.style.display = pagado ? 'none' : ''; });
+  if(!pagado){
+    const rec = listaRecaudaciones.find(r=>r.nombre===recaudacionActual);
+    $('montoPagoRec').value = rec ? rec.montoSugerido : '';
+    const hoy = new Date();
+    $('fechaPagoRec').value = hoy.getFullYear() + '-' +
+      String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
+  }
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+$('formPagoRec').addEventListener('submit', async ev=>{
+  ev.preventDefault();
+  const av = $('avisoRecaudaciones');
+  if(!alumnoPagoRec || !recaudacionActual) return;
+  const a = alumnosRecaudacion.find(x=>x.nombre===alumnoPagoRec);
+  const anular = a && a.estado==='Pagada';
+  const params = {action:'adminPagoRecaudacion', alumno:alumnoPagoRec, recaudacion:recaudacionActual, operacion: anular?'anular':'pagar'};
+  if(!anular){
+    const monto = Number($('montoPagoRec').value);
+    if(!monto || monto<=0) return aviso(av,'error','Ingresa el monto del pago.');
+    params.monto = monto;
+    params.metodo = $('metodoPagoRec').value.trim();
+    params.fecha = $('fechaPagoRec').value;
+  } else if(!confirm('¿Anular el pago de ' + alumnoPagoRec + ' en "' + recaudacionActual + '"?')){
+    return;
+  }
+  aviso(av,'',''); $('btnPagoRec').disabled = true;
+  try{
+    const s = leer('sesionAdminCuotas');
+    params.adminHash = s.adminHash;
+    const r = await api(params);
+    if(!r.ok) throw new Error(r.error);
+    cerrarPanelPagoRec();
+    const nombreRec = recaudacionActual;
+    await cargarDetalleRecaudacion(nombreRec);
+    await cargarRecaudaciones();
+    aviso($('avisoRecaudaciones'),'exito', r.mensaje||'Listo.');
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo registrar el pago.');
+  }finally{ $('btnPagoRec').disabled = false; }
+});
+
+$('formNuevaRecaudacion').addEventListener('submit', async ev=>{
+  ev.preventDefault();
+  const av = $('avisoRecaudaciones');
+  const nombre = $('recNombre').value.trim();
+  const monto = Number($('recMonto').value);
+  if(!nombre) return aviso(av,'error','Escribe un nombre para la recaudación.');
+  if(!monto || monto<=0) return aviso(av,'error','Ingresa un monto sugerido válido.');
+  aviso(av,'',''); $('btnCrearRecaudacion').disabled = true;
+  try{
+    const s = leer('sesionAdminCuotas');
+    const r = await api({action:'adminCrearRecaudacion', adminHash:s.adminHash, nombre, monto});
+    if(!r.ok) throw new Error(r.error);
+    $('recNombre').value=''; $('recMonto').value='';
+    await cargarRecaudaciones();
+    await cargarDetalleRecaudacion(nombre);
+    aviso($('avisoRecaudaciones'),'exito', r.mensaje||'Recaudación creada.');
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo crear la recaudación.');
+  }finally{ $('btnCrearRecaudacion').disabled = false; }
+});
+
+$('btnCerrarRecaudacion').onclick = async ()=>{
+  if(!recaudacionActual) return;
+  const rec = listaRecaudaciones.find(r=>r.nombre===recaudacionActual);
+  const nuevoEstado = rec && rec.estado==='Cerrada' ? 'Activa' : 'Cerrada';
+  const av = $('avisoRecaudaciones');
+  try{
+    const s = leer('sesionAdminCuotas');
+    const r = await api({action:'adminCerrarRecaudacion', adminHash:s.adminHash, recaudacion:recaudacionActual, estado:nuevoEstado});
+    if(!r.ok) throw new Error(r.error);
+    await cargarRecaudaciones();
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo actualizar el estado.');
+  }
+};
+
+$('btnEliminarRecaudacion').onclick = async ()=>{
+  if(!recaudacionActual) return;
+  if(!confirm('¿Eliminar la recaudación "' + recaudacionActual + '" junto con todos sus registros de pago?\n\nEsta acción no se puede deshacer.')) return;
+  const av = $('avisoRecaudaciones');
+  try{
+    const s = leer('sesionAdminCuotas');
+    const r = await api({action:'adminEliminarRecaudacion', adminHash:s.adminHash, recaudacion:recaudacionActual});
+    if(!r.ok) throw new Error(r.error);
+    recaudacionActual = null;
+    $('recDetalle').style.display = 'none';
+    await cargarRecaudaciones();
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo eliminar.');
+  }
+};
 
 /* ── Informes descargables (CSV) ── */
 function descargarCSV(nombreArchivo, filas){
