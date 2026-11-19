@@ -646,6 +646,8 @@ async function api(params){
 const guardar = (k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
 const leer    = k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } };
 const borrar  = k=>{ try{ localStorage.removeItem(k); }catch(e){} };
+/* Solo los errores de credenciales cierran la sesión; un corte de red no. */
+const esErrorSesion = msg => /sesi[oó]n/i.test(String(msg||''));
 
 /* ══════════ VISTAS ══════════ */
 const VISTAS = ['vista-login','vista-admin-login','vista-panel','vista-admin'];
@@ -687,8 +689,7 @@ $('formRegistro').addEventListener('submit', async ev=>{
     const r = await api({action:'registro', alumno, hash, apoderado: $('apoderadoReg').value.trim()});
     if(!r.ok) throw new Error(r.error);
     aviso(av,'exito','¡Cuenta creada! Ingresando…');
-    guardar('sesionCuotas', {alumno: r.alumno || alumno, hash});
-    await cargarPanel();
+    entrarApoderado({alumno: r.alumno || alumno, hash}, r.datos);
   }catch(e){
     aviso(av,'error', e.message||'No se pudo crear la cuenta.');
   }finally{ $('btnReg').disabled = false; }
@@ -705,27 +706,54 @@ $('formLogin').addEventListener('submit', async ev=>{
     const hash = await hashCredencial(alumno, $('passLogin').value);
     const r = await api({action:'login', alumno, hash});
     if(!r.ok) throw new Error(r.error);
-    guardar('sesionCuotas', {alumno: r.alumno || alumno, hash});
-    await cargarPanel();
+    entrarApoderado({alumno: r.alumno || alumno, hash}, r.datos);
   }catch(e){
     aviso(av,'error', e.message||'No se pudo ingresar.');
   }finally{ $('btnLogin').disabled = false; }
 });
 
-/* ══════════ PANEL APODERADO ══════════ */
+/* El backend v5 ya trae los datos del panel en la respuesta de login/registro */
+function entrarApoderado(sesion, datos){
+  guardar('sesionCuotas', sesion);
+  if(datos && datos.ok){
+    guardar('cachePanel', {alumno: sesion.alumno, d: datos});
+    pintarPanel(datos);
+    mostrar('vista-panel');
+  } else {
+    cargarPanel();
+  }
+}
+
+/* ══════════ PANEL APODERADO ══════════
+   Muestra al instante la última versión guardada en el teléfono
+   y la reemplaza cuando llegan los datos frescos del servidor. */
 async function cargarPanel(){
   const s = leer('sesionCuotas');
   if(!s) return mostrar('vista-login');
-  mostrar('cargando');
+
+  const cache = leer('cachePanel');
+  const hayCache = !!(cache && cache.alumno === s.alumno);
+  if(hayCache){ pintarPanel(cache.d); mostrar('vista-panel'); }
+  else mostrar('cargando');
+
   try{
     const d = await api({action:'datos', alumno:s.alumno, hash:s.hash});
-    if(!d.ok) throw new Error(d.error);
+    if(!d.ok){
+      if(esErrorSesion(d.error)){
+        borrar('sesionCuotas'); borrar('cachePanel');
+        mostrar('vista-login');
+        return aviso($('avisoLogin'),'error', d.error||'Vuelve a ingresar.');
+      }
+      throw new Error(d.error);
+    }
+    guardar('cachePanel', {alumno:s.alumno, d});
     pintarPanel(d);
     mostrar('vista-panel');
   }catch(e){
-    borrar('sesionCuotas');
-    mostrar('vista-login');
-    aviso($('avisoLogin'),'error', e.message||'Vuelve a ingresar.');
+    if(!hayCache){
+      mostrar('vista-login');
+      aviso($('avisoLogin'),'error', 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.');
+    }
   }
 }
 
@@ -788,28 +816,79 @@ $('formAdmin').addEventListener('submit', async ev=>{
     const r = await api({action:'adminLogin', adminHash});
     if(!r.ok) throw new Error(r.error);
     guardar('sesionAdminCuotas', {adminHash});
-    await cargarAdmin();
+    if(r.datos && r.datos.ok){ aplicarAdmin(r.datos); mostrar('vista-admin'); }
+    else await cargarAdmin();
   }catch(e){
     aviso(av,'error', e.message||'No se pudo ingresar.');
   }finally{ $('btnAdminLogin').disabled = false; }
 });
 
 /* ══════════ PANEL ADMIN ══════════ */
-async function cargarAdmin(){
+/* silencioso=true: refresca por detrás sin spinner ni esconder el panel */
+async function cargarAdmin(silencioso=false){
   const s = leer('sesionAdminCuotas');
   if(!s) return mostrar('vista-admin-login');
-  mostrar('cargando');
+
+  let visible = silencioso;
+  if(!silencioso){
+    const cache = leer('cacheAdmin');
+    if(cache){ aplicarAdmin(cache, false); mostrar('vista-admin'); visible = true; }
+    else mostrar('cargando');
+  }
+
   try{
     const d = await api({action:'adminDatos', adminHash:s.adminHash});
-    if(!d.ok) throw new Error(d.error);
-    pintarAdmin(d);
+    if(!d.ok){
+      if(esErrorSesion(d.error)){
+        borrar('sesionAdminCuotas'); borrar('cacheAdmin');
+        mostrar('vista-admin-login');
+        return aviso($('avisoAdmin'),'error', d.error||'Vuelve a ingresar.');
+      }
+      throw new Error(d.error);
+    }
+    aplicarAdmin(d);
     mostrar('vista-admin');
-    cargarRecaudaciones();
   }catch(e){
-    borrar('sesionAdminCuotas');
-    mostrar('vista-admin-login');
-    aviso($('avisoAdmin'),'error', e.message||'Vuelve a ingresar.');
+    if(!visible){
+      mostrar('vista-admin-login');
+      aviso($('avisoAdmin'),'error', 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.');
+    }
   }
+}
+
+/* Pinta el panel admin completo con una respuesta del servidor y la guarda */
+function aplicarAdmin(d, guardarEnCache=true){
+  if(!d || !d.ok) return;
+  if(guardarEnCache) guardar('cacheAdmin', d);
+  pintarAdmin(d);
+  listaRecaudaciones   = d.recaudaciones || [];
+  detalleRecaudaciones = d.recaudacionPagos || {};
+  pintarRecaudaciones();
+}
+
+/* Cuenta las escrituras en curso: solo la última respuesta repinta el panel */
+let escriturasPendientes = 0;
+async function escribirAdmin(params){
+  const s = leer('sesionAdminCuotas');
+  params.adminHash = s ? s.adminHash : '';
+  escriturasPendientes++;
+  try{
+    const r = await api(params);
+    if(!r.ok) throw new Error(r.error);
+    return r;
+  }finally{
+    escriturasPendientes--;
+  }
+}
+function aplicarRespuesta(r){
+  if(escriturasPendientes > 0) return;   // llegará una respuesta más nueva
+  if(r && r.datos) aplicarAdmin(r.datos);
+  else cargarAdmin(true);                // backend antiguo: recarga por detrás
+}
+/* Si una escritura falla, vuelve al último estado confirmado por el servidor */
+function revertirAdmin(){
+  const c = leer('cacheAdmin');
+  if(c) aplicarAdmin(c, false);
 }
 
 let estadoAdmin = [];
@@ -836,8 +915,14 @@ function mesesPendientes(a){
 }
 
 function pintarAdmin(d){
+  // mantener en pantalla al mismo alumno aunque cambie la lista
+  const previo = alumnoActual();
   estadoAdmin = d.estado || [];
   montoSugerido = d.montoSugerido || 0;
+  if(previo){
+    const i = listaFiltrada().findIndex(x=>x.nombre===previo.nombre);
+    if(i !== -1) indiceFicha = i;
+  }
 
   $('fechaActAdmin').textContent = 'Actualizado: ' + (d.actualizado||'');
   $('admRecaudado').textContent = clp(d.recaudado);
@@ -864,11 +949,9 @@ function pintarAdmin(d){
       btn.disabled = true;
       const av = $('avisoAdmCuentas');
       try{
-        const s = leer('sesionAdminCuotas');
-        const r = await api({action:'adminEliminar', adminHash:s.adminHash, alumno});
-        if(!r.ok) throw new Error(r.error);
+        const r = await escribirAdmin({action:'adminEliminar', alumno});
+        aplicarRespuesta(r);
         aviso(av,'exito', r.mensaje||'Cuenta eliminada.');
-        await cargarAdmin();
       }catch(e){
         aviso(av,'error', e.message||'No se pudo eliminar.');
         btn.disabled = false;
@@ -980,7 +1063,8 @@ $('formPago').addEventListener('submit', async ev=>{
   const a = alumnoActual();
   if(!a || !mesSeleccionado) return;
   const dato = (a.meses||[]).find(m=>m.mes===mesSeleccionado);
-  const anular = dato && dato.estado==='Pagada';
+  if(!dato) return;
+  const anular = dato.estado==='Pagada';
   const params = {action:'adminPago', alumno:a.nombre, mes:mesSeleccionado, operacion: anular?'anular':'pagar'};
   if(!anular){
     const monto = Number($('montoPago').value);
@@ -991,47 +1075,44 @@ $('formPago').addEventListener('submit', async ev=>{
   } else if(!confirm('¿Anular el pago de ' + mesSeleccionado + ' de ' + a.nombre + '?\n\nLa cuota volverá a Pendiente y el monto quedará en 0.')){
     return;
   }
-  aviso(av,'',''); $('btnPago').disabled = true;
-  const nombreActual = a.nombre;
+  // Actualización optimista: el calendario cambia al instante y el servidor confirma después
+  const montoPrevio = Number(dato.monto)||0;
+  if(anular){
+    dato.estado = 'Pendiente'; dato.monto = 0;
+    a.total -= montoPrevio; a.pagadas--; a.pendientes++;
+  } else {
+    dato.estado = 'Pagada'; dato.monto = params.monto;
+    a.total += params.monto; a.pagadas++; a.pendientes--;
+  }
+  const mesTxt = mesSeleccionado;
+  cerrarPanelPago();
+  pintarFicha();
+  aviso(av,'exito','Guardando ' + mesTxt + '…');
   try{
-    const s = leer('sesionAdminCuotas');
-    params.adminHash = s.adminHash;
-    const r = await api(params);
-    if(!r.ok) throw new Error(r.error);
-    cerrarPanelPago();
-    await cargarAdmin();
-    // mantener al mismo alumno en pantalla tras refrescar
-    const idx = listaFiltrada().findIndex(x=>x.nombre===nombreActual);
-    if(idx !== -1){ indiceFicha = idx; pintarFicha(); }
-    aviso($('avisoPago'),'exito', r.mensaje||'Listo.');
+    const r = await escribirAdmin(params);
+    aplicarRespuesta(r);
+    aviso(av,'exito', r.mensaje||'Listo.');
   }catch(e){
-    aviso(av,'error', e.message||'No se pudo registrar el pago.');
-  }finally{ $('btnPago').disabled = false; }
+    revertirAdmin();
+    aviso(av,'error', (e.message||'No se pudo registrar el pago.') + ' No se guardó el cambio de ' + mesTxt + '.');
+  }
 });
 
 /* ── Recaudaciones (paseos, regalos, actividades, etc.) ── */
+/* Todo llega en la respuesta de adminDatos: abrir una recaudación es instantáneo */
 let listaRecaudaciones = [];
+let detalleRecaudaciones = {};
 let recaudacionActual = null;
 let alumnosRecaudacion = [];
 let alumnoPagoRec = null;
 
-async function cargarRecaudaciones(){
-  const s = leer('sesionAdminCuotas');
-  if(!s) return;
-  try{
-    const d = await api({action:'adminListaRecaudaciones', adminHash:s.adminHash});
-    if(!d.ok) throw new Error(d.error);
-    listaRecaudaciones = d.recaudaciones || [];
-    pintarFiltrosRecaudaciones();
-    if(recaudacionActual && listaRecaudaciones.some(r=>r.nombre===recaudacionActual)){
-      await cargarDetalleRecaudacion(recaudacionActual);
-    }else{
-      recaudacionActual = null;
-      $('recDetalle').style.display = 'none';
-    }
-  }catch(e){
-    aviso($('avisoRecaudaciones'),'error', e.message||'No se pudieron cargar las recaudaciones.');
+function pintarRecaudaciones(){
+  if(recaudacionActual && !listaRecaudaciones.some(r=>r.nombre===recaudacionActual)){
+    recaudacionActual = null;
   }
+  pintarFiltrosRecaudaciones();
+  if(recaudacionActual) pintarDetalleRecaudacion();
+  else $('recDetalle').style.display = 'none';
 }
 
 function pintarFiltrosRecaudaciones(){
@@ -1044,32 +1125,34 @@ function pintarFiltrosRecaudaciones(){
     </button>`
   ).join('') || '<span class="sin-datos">Aún no has creado ninguna recaudación.</span>';
   document.querySelectorAll('#recFiltros button').forEach(btn=>{
-    btn.onclick = ()=> cargarDetalleRecaudacion(btn.getAttribute('data-nombre'));
+    btn.onclick = ()=> abrirRecaudacion(btn.getAttribute('data-nombre'));
   });
 }
 
-async function cargarDetalleRecaudacion(nombre){
+/* Click del usuario en una recaudación */
+function abrirRecaudacion(nombre){
   recaudacionActual = nombre;
+  aviso($('avisoRecaudaciones'),'','');
+  cerrarPanelPagoRec();
   pintarFiltrosRecaudaciones();
-  const s = leer('sesionAdminCuotas');
-  const av = $('avisoRecaudaciones');
-  aviso(av,'','');
-  try{
-    const d = await api({action:'adminDatosRecaudacion', adminHash:s.adminHash, recaudacion:nombre});
-    if(!d.ok) throw new Error(d.error);
-    alumnosRecaudacion = d.alumnos || [];
-    $('recDetalle').style.display = 'block';
-    $('recTotales').innerHTML = `
-      <div><span class="etiq">Recaudado</span><b>${clp(d.totales.recaudado)}</b></div>
-      <div><span class="etiq">Pagados</span><b>${d.totales.pagados} / ${d.totales.totalAlumnos}</b></div>
-      <div><span class="etiq">Monto sugerido</span><b>${clp(d.recaudacion.montoSugerido)}</b></div>
-    `;
-    $('btnCerrarRecaudacion').textContent = d.recaudacion.estado==='Cerrada' ? 'Reabrir recaudación' : 'Cerrar recaudación';
-    cerrarPanelPagoRec();
-    pintarTablaRecaudacion();
-  }catch(e){
-    aviso(av,'error', e.message||'No se pudo cargar la recaudación.');
-  }
+  pintarDetalleRecaudacion();
+}
+
+/* Pinta el detalle con los datos que ya están en memoria (sin llamar al servidor) */
+function pintarDetalleRecaudacion(){
+  const rec = listaRecaudaciones.find(r=>r.nombre===recaudacionActual);
+  if(!rec){ $('recDetalle').style.display = 'none'; return; }
+  alumnosRecaudacion = detalleRecaudaciones[rec.nombre] || [];
+  const pagados = alumnosRecaudacion.filter(a=>a.estado==='Pagada');
+  const recaudado = pagados.reduce((s,a)=>s+(Number(a.monto)||0),0);
+  $('recDetalle').style.display = 'block';
+  $('recTotales').innerHTML = `
+    <div><span class="etiq">Recaudado</span><b>${clp(recaudado)}</b></div>
+    <div><span class="etiq">Pagados</span><b>${pagados.length} / ${alumnosRecaudacion.length}</b></div>
+    <div><span class="etiq">Monto sugerido</span><b>${clp(rec.montoSugerido)}</b></div>
+  `;
+  $('btnCerrarRecaudacion').textContent = rec.estado==='Cerrada' ? 'Reabrir recaudación' : 'Cerrar recaudación';
+  pintarTablaRecaudacion();
 }
 
 function pintarTablaRecaudacion(){
@@ -1122,7 +1205,8 @@ $('formPagoRec').addEventListener('submit', async ev=>{
   const av = $('avisoRecaudaciones');
   if(!alumnoPagoRec || !recaudacionActual) return;
   const a = alumnosRecaudacion.find(x=>x.nombre===alumnoPagoRec);
-  const anular = a && a.estado==='Pagada';
+  if(!a) return;
+  const anular = a.estado==='Pagada';
   const params = {action:'adminPagoRecaudacion', alumno:alumnoPagoRec, recaudacion:recaudacionActual, operacion: anular?'anular':'pagar'};
   if(!anular){
     const monto = Number($('montoPagoRec').value);
@@ -1133,20 +1217,21 @@ $('formPagoRec').addEventListener('submit', async ev=>{
   } else if(!confirm('¿Anular el pago de ' + alumnoPagoRec + ' en "' + recaudacionActual + '"?')){
     return;
   }
-  aviso(av,'',''); $('btnPagoRec').disabled = true;
+  // Actualización optimista de la tabla
+  if(anular){ a.estado = 'Pendiente'; a.monto = 0; }
+  else { a.estado = 'Pagada'; a.monto = params.monto; a.metodo = params.metodo; }
+  const nombreTxt = alumnoPagoRec;
+  cerrarPanelPagoRec();
+  pintarDetalleRecaudacion();
+  aviso(av,'exito','Guardando pago de ' + nombreTxt + '…');
   try{
-    const s = leer('sesionAdminCuotas');
-    params.adminHash = s.adminHash;
-    const r = await api(params);
-    if(!r.ok) throw new Error(r.error);
-    cerrarPanelPagoRec();
-    const nombreRec = recaudacionActual;
-    await cargarDetalleRecaudacion(nombreRec);
-    await cargarRecaudaciones();
-    aviso($('avisoRecaudaciones'),'exito', r.mensaje||'Listo.');
+    const r = await escribirAdmin(params);
+    aplicarRespuesta(r);
+    aviso(av,'exito', r.mensaje||'Listo.');
   }catch(e){
-    aviso(av,'error', e.message||'No se pudo registrar el pago.');
-  }finally{ $('btnPagoRec').disabled = false; }
+    revertirAdmin();
+    aviso(av,'error', (e.message||'No se pudo registrar el pago.') + ' No se guardó el cambio de ' + nombreTxt + '.');
+  }
 });
 
 $('formNuevaRecaudacion').addEventListener('submit', async ev=>{
@@ -1158,12 +1243,10 @@ $('formNuevaRecaudacion').addEventListener('submit', async ev=>{
   if(!monto || monto<=0) return aviso(av,'error','Ingresa un monto sugerido válido.');
   aviso(av,'',''); $('btnCrearRecaudacion').disabled = true;
   try{
-    const s = leer('sesionAdminCuotas');
-    const r = await api({action:'adminCrearRecaudacion', adminHash:s.adminHash, nombre, monto});
-    if(!r.ok) throw new Error(r.error);
+    const r = await escribirAdmin({action:'adminCrearRecaudacion', nombre, monto});
     $('recNombre').value=''; $('recMonto').value='';
-    await cargarRecaudaciones();
-    await cargarDetalleRecaudacion(nombre);
+    recaudacionActual = nombre;
+    aplicarRespuesta(r);
     aviso($('avisoRecaudaciones'),'exito', r.mensaje||'Recaudación creada.');
   }catch(e){
     aviso(av,'error', e.message||'No se pudo crear la recaudación.');
@@ -1175,30 +1258,29 @@ $('btnCerrarRecaudacion').onclick = async ()=>{
   const rec = listaRecaudaciones.find(r=>r.nombre===recaudacionActual);
   const nuevoEstado = rec && rec.estado==='Cerrada' ? 'Activa' : 'Cerrada';
   const av = $('avisoRecaudaciones');
+  $('btnCerrarRecaudacion').disabled = true;
   try{
-    const s = leer('sesionAdminCuotas');
-    const r = await api({action:'adminCerrarRecaudacion', adminHash:s.adminHash, recaudacion:recaudacionActual, estado:nuevoEstado});
-    if(!r.ok) throw new Error(r.error);
-    await cargarRecaudaciones();
+    const r = await escribirAdmin({action:'adminCerrarRecaudacion', recaudacion:recaudacionActual, estado:nuevoEstado});
+    aplicarRespuesta(r);
   }catch(e){
     aviso(av,'error', e.message||'No se pudo actualizar el estado.');
-  }
+  }finally{ $('btnCerrarRecaudacion').disabled = false; }
 };
 
 $('btnEliminarRecaudacion').onclick = async ()=>{
   if(!recaudacionActual) return;
   if(!confirm('¿Eliminar la recaudación "' + recaudacionActual + '" junto con todos sus registros de pago?\n\nEsta acción no se puede deshacer.')) return;
   const av = $('avisoRecaudaciones');
+  $('btnEliminarRecaudacion').disabled = true;
   try{
-    const s = leer('sesionAdminCuotas');
-    const r = await api({action:'adminEliminarRecaudacion', adminHash:s.adminHash, recaudacion:recaudacionActual});
-    if(!r.ok) throw new Error(r.error);
+    const r = await escribirAdmin({action:'adminEliminarRecaudacion', recaudacion:recaudacionActual});
     recaudacionActual = null;
     $('recDetalle').style.display = 'none';
-    await cargarRecaudaciones();
+    aplicarRespuesta(r);
+    aviso(av,'exito', r.mensaje||'Recaudación eliminada.');
   }catch(e){
     aviso(av,'error', e.message||'No se pudo eliminar.');
-  }
+  }finally{ $('btnEliminarRecaudacion').disabled = false; }
 };
 
 /* ── Informes descargables (CSV) ── */
@@ -1255,6 +1337,7 @@ $('btnInfCartola').onclick = ()=>{
 $('btnSalir').onclick = ()=>{
   const eraAdmin = $('vista-admin').style.display==='block';
   borrar('sesionCuotas'); borrar('sesionAdminCuotas');
+  borrar('cachePanel'); borrar('cacheAdmin');   // no dejar datos en teléfonos compartidos
   $('passLogin').value=''; $('passAdmin').value='';
   aviso($('avisoLogin'),'',''); aviso($('avisoAdmin'),'','');
   mostrar(eraAdmin ? 'vista-admin-login' : 'vista-login');
