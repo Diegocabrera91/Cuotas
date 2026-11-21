@@ -211,6 +211,51 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
   color:var(--tinta-suave);font-size:.82rem;text-decoration:underline;
 }
 .link-admin:hover{color:var(--verde)}
+.form .btn-texto{align-self:center}
+.paso{display:flex;flex-direction:column;gap:14px}
+/* Correo de recuperación (panel del apoderado) */
+.bloque-correo.falta{border-color:var(--ambar);background:var(--ambar-suave)}
+.bloque-correo .ayuda-correo{color:var(--tinta-suave);font-size:.88rem;margin:-4px 0 12px}
+.bloque-correo .form{padding:0}
+.linea-correo{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;font-size:.88rem;color:var(--tinta-suave)}
+.linea-correo b{color:var(--tinta, inherit)}
+.sin-correo{color:var(--ambar);font-weight:600}
+
+/* Gastos detallados */
+.gastos-resumen{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:-4px 0 12px;font-size:.85rem;color:var(--tinta-suave)}
+.gastos-resumen b{font-family:var(--f-display);font-size:1.05rem;color:var(--rojo);font-variant-numeric:tabular-nums}
+.cat-barras{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed var(--linea)}
+.cat-fila{display:grid;grid-template-columns:minmax(90px,30%) 1fr auto;gap:8px;align-items:center;font-size:.82rem}
+.cat-fila .barra{height:9px;border-radius:5px;background:#EFEBE0;overflow:hidden}
+.cat-fila .barra i{display:block;height:100%;background:var(--ambar);border-radius:5px}
+.cat-fila .cat-monto{font-variant-numeric:tabular-nums;font-weight:600}
+.cat-fila .cat-nom{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gasto-mes{display:flex;justify-content:space-between;align-items:baseline;margin:14px 0 6px;
+  font-size:.74rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-suave)}
+.gasto-mes:first-of-type{margin-top:0}
+.gasto-mes span:last-child{font-variant-numeric:tabular-nums;letter-spacing:0}
+.gasto{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;padding:10px 0;border-top:1px solid #F0ECE2}
+.gasto-dia{grid-row:span 2;width:42px;text-align:center;border:1px solid var(--linea);border-radius:8px;padding:4px 0;line-height:1.05;background:#FCFBF7}
+.gasto-dia b{display:block;font-family:var(--f-display);font-size:1.05rem}
+.gasto-dia small{font-size:.62rem;text-transform:uppercase;color:var(--tinta-suave);font-weight:700}
+.gasto-desc{font-weight:600;font-size:.93rem;line-height:1.3}
+.gasto-monto{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.gasto-meta{grid-column:2 / -1;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:.8rem;color:var(--tinta-suave)}
+.gasto-nota{grid-column:2 / -1;font-size:.82rem;color:var(--tinta-suave)}
+.chip-cat{background:var(--ambar-suave);color:#8A5A12;border-radius:20px;padding:2px 9px;font-weight:600;font-size:.74rem}
+.btn-comprobante{background:none;border:1px solid #BCDCC9;color:var(--verde);border-radius:20px;padding:3px 10px;font-size:.78rem;font-weight:700}
+.btn-comprobante:hover{background:var(--verde-suave)}
+.btn-comprobante:disabled{opacity:.6;cursor:wait}
+.sin-comp{font-style:italic}
+/* Visor de comprobantes */
+.visor{position:fixed;inset:0;background:rgba(15,25,20,.72);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+.visor.abierto{display:flex}
+.visor-caja{background:#fff;border-radius:14px;max-width:720px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.visor-barra{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--linea);font-weight:700;font-size:.9rem}
+.visor-barra button{background:none;border:none;font-size:1.3rem;line-height:1;color:var(--tinta-suave);padding:4px 8px}
+.visor-cuerpo{overflow:auto;padding:12px;text-align:center}
+.visor-cuerpo img{max-width:100%;height:auto;border-radius:6px}
+.visor-cuerpo .btn-principal{display:inline-block;text-decoration:none;margin-top:10px;padding:11px 18px}
 
 /* ── Vistas ─────────────────────────────────────────── */
 #vista-admin-login,#vista-panel,#vista-admin{display:none}
@@ -353,6 +398,36 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
         </div>
         <div class="aviso" id="avisoLogin"></div>
         <button type="submit" class="btn-principal" id="btnLogin">Ingresar</button>
+        <button type="button" class="btn-texto" id="btnOlvide">¿Olvidaste tu contraseña?</button>
+      </form>
+
+      <form class="form" id="formReset" style="display:none" autocomplete="off">
+        <h1>Recuperar contraseña</h1>
+        <p class="ayuda" id="ayudaReset">Escribe el nombre de tu hijo(a). Te enviaremos un código al correo que registraste.</p>
+        <div class="paso" id="pasoReset1">
+          <div>
+            <label for="alumnoReset">Nombre del alumno(a)</label>
+            <input type="text" id="alumnoReset" placeholder="Nombre y apellidos" autocomplete="off">
+          </div>
+        </div>
+        <div class="paso" id="pasoReset2" style="display:none">
+          <div>
+            <label for="codigoReset">Código de 6 dígitos</label>
+            <input type="text" id="codigoReset" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code">
+          </div>
+          <div>
+            <label for="passReset">Nueva contraseña (mínimo 6 caracteres)</label>
+            <input type="password" id="passReset" minlength="6" autocomplete="new-password">
+          </div>
+          <div>
+            <label for="passReset2">Repite la nueva contraseña</label>
+            <input type="password" id="passReset2" minlength="6" autocomplete="new-password">
+          </div>
+        </div>
+        <div class="aviso" id="avisoReset"></div>
+        <button type="submit" class="btn-principal" id="btnReset">Enviar código</button>
+        <button type="button" class="btn-texto" id="btnReenviar" style="display:none">No me llegó: enviar otro código</button>
+        <button type="button" class="btn-texto" id="btnVolverIngreso">← Volver a ingresar</button>
       </form>
 
       <form class="form" id="formRegistro" style="display:none" autocomplete="off">
@@ -365,6 +440,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
         <div>
           <label for="apoderadoReg">Tu nombre (apoderado, opcional)</label>
           <input type="text" id="apoderadoReg" placeholder="Ej: Carolina Pérez">
+        </div>
+        <div>
+          <label for="correoReg">Tu correo (para recuperar la contraseña si la olvidas)</label>
+          <input type="email" id="correoReg" required placeholder="nombre@gmail.com" autocomplete="email">
         </div>
         <div>
           <label for="passReg">Contraseña (mínimo 6 caracteres)</label>
@@ -437,6 +516,25 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
     <div class="bloque">
       <h3>Detalle de gastos</h3>
       <div id="zonaGastos"></div>
+    </div>
+
+    <div class="bloque bloque-correo" id="bloqueCorreo" style="display:none">
+      <div id="correoFalta">
+        <h3>Agrega tu correo</h3>
+        <p class="ayuda-correo">Si algún día olvidas tu contraseña, te enviaremos ahí un código para crear una nueva, sin tener que pedírselo a la tesorería.</p>
+      </div>
+      <div class="linea-correo" id="correoActual">
+        <span>Correo para recuperar tu contraseña: <b id="correoMascara"></b></span>
+        <button type="button" class="btn-texto" id="btnCambiarCorreo">Cambiar</button>
+      </div>
+      <form class="form" id="formCorreo" autocomplete="off">
+        <div>
+          <label for="inputCorreo">Correo electrónico</label>
+          <input type="email" id="inputCorreo" required placeholder="nombre@gmail.com" autocomplete="email">
+        </div>
+        <button type="submit" class="btn-principal" id="btnCorreo">Guardar correo</button>
+      </form>
+      <div class="aviso" id="avisoCorreo" style="margin-top:10px"></div>
     </div>
   </section>
 
@@ -592,13 +690,14 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
     <div class="bloque">
       <h3>Cuentas de apoderados <small id="admResumenCuentas"></small></h3>
       <p class="ayuda" style="margin:-6px 0 10px;color:var(--tinta-suave);font-size:.85rem">
-        Si un apoderado olvidó su contraseña, elimina su cuenta y pídele que se registre de nuevo.
+        Los apoderados con correo registrado pueden recuperar su contraseña solos desde "¿Olvidaste tu contraseña?".
+        Si alguien sin correo la olvidó, elimina su cuenta y pídele que se registre de nuevo.
       </p>
       <div class="aviso" id="avisoAdmCuentas"></div>
       <div class="scroll-x">
         <table class="tabla">
           <thead><tr>
-            <th>Alumno</th><th>Apoderado</th><th>Registro</th><th></th>
+            <th>Alumno</th><th>Apoderado</th><th>Correo</th><th>Registro</th><th></th>
           </tr></thead>
           <tbody id="admCuentas"></tbody>
         </table>
@@ -607,6 +706,13 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--verde);out
   </section>
 
 </main>
+
+<div class="visor" id="visor" role="dialog" aria-modal="true" aria-labelledby="visorTitulo">
+  <div class="visor-caja">
+    <div class="visor-barra"><span id="visorTitulo">Comprobante</span><button type="button" id="visorCerrar" aria-label="Cerrar">✕</button></div>
+    <div class="visor-cuerpo" id="visorCuerpo"></div>
+  </div>
+</div>
 
 <script>
 /* ══════════ CONFIGURACIÓN ══════════ */
@@ -662,14 +768,13 @@ function aviso(el, tipo, msg){
 }
 
 /* ══════════ NAVEGACIÓN ══════════ */
-$('tabIngresar').onclick = ()=>{
-  $('tabIngresar').classList.add('activa'); $('tabRegistro').classList.remove('activa');
-  $('formLogin').style.display=''; $('formRegistro').style.display='none';
-};
-$('tabRegistro').onclick = ()=>{
-  $('tabRegistro').classList.add('activa'); $('tabIngresar').classList.remove('activa');
-  $('formRegistro').style.display=''; $('formLogin').style.display='none';
-};
+function verFormulario(cual){
+  ['formLogin','formRegistro','formReset'].forEach(f=>{ $(f).style.display = (f===cual) ? '' : 'none'; });
+  $('tabIngresar').classList.toggle('activa', cual==='formLogin');
+  $('tabRegistro').classList.toggle('activa', cual==='formRegistro');
+}
+$('tabIngresar').onclick = ()=> verFormulario('formLogin');
+$('tabRegistro').onclick = ()=> verFormulario('formRegistro');
 $('btnIrAdmin').onclick = ()=> mostrar('vista-admin-login');
 $('btnVolverLogin').onclick = ()=> mostrar('vista-login');
 
@@ -683,10 +788,12 @@ $('formRegistro').addEventListener('submit', async ev=>{
   if(alumno.split(/\s+/).length < 2) return aviso(av,'error','Escribe nombre y apellido, tal como está inscrito en el curso.');
   if(p1.length<6) return aviso(av,'error','La contraseña debe tener al menos 6 caracteres.');
   if(p1!==p2) return aviso(av,'error','Las contraseñas no coinciden.');
+  const correo = $('correoReg').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) return aviso(av,'error','Escribe un correo válido: lo usaremos solo si olvidas tu contraseña.');
   aviso(av,'',''); $('btnReg').disabled = true;
   try{
     const hash = await hashCredencial(alumno, p1);
-    const r = await api({action:'registro', alumno, hash, apoderado: $('apoderadoReg').value.trim()});
+    const r = await api({action:'registro', alumno, hash, correo, apoderado: $('apoderadoReg').value.trim()});
     if(!r.ok) throw new Error(r.error);
     aviso(av,'exito','¡Cuenta creada! Ingresando…');
     entrarApoderado({alumno: r.alumno || alumno, hash}, r.datos);
@@ -710,6 +817,107 @@ $('formLogin').addEventListener('submit', async ev=>{
   }catch(e){
     aviso(av,'error', e.message||'No se pudo ingresar.');
   }finally{ $('btnLogin').disabled = false; }
+});
+
+/* ══════════ RECUPERAR CONTRASEÑA ══════════ */
+let resetAlumno = '';
+function pasoReset(n){
+  $('pasoReset1').style.display = n===1 ? '' : 'none';
+  $('pasoReset2').style.display = n===2 ? '' : 'none';
+  $('btnReenviar').style.display = n===2 ? '' : 'none';
+  $('btnReset').textContent = n===1 ? 'Enviar código' : 'Cambiar contraseña';
+  $('ayudaReset').textContent = n===1
+    ? 'Escribe el nombre de tu hijo(a). Te enviaremos un código al correo que registraste.'
+    : 'Revisa tu correo (y la carpeta de spam) y escribe el código junto con tu nueva contraseña.';
+}
+$('btnOlvide').onclick = ()=>{
+  verFormulario('formReset');
+  $('alumnoReset').value = $('alumnoLogin').value.trim();
+  aviso($('avisoReset'),'','');
+  pasoReset(1);
+};
+$('btnVolverIngreso').onclick = ()=> verFormulario('formLogin');
+
+async function enviarCodigo(){
+  const av = $('avisoReset');
+  const alumno = (resetAlumno && $('pasoReset2').style.display!=='none') ? resetAlumno : $('alumnoReset').value.trim();
+  if(!alumno) return aviso(av,'error','Escribe el nombre del alumno.');
+  if(alumno.split(/\s+/).length < 2) return aviso(av,'error','Escribe nombre y apellido del alumno.');
+  $('btnReset').disabled = true; $('btnReenviar').disabled = true;
+  try{
+    const r = await api({action:'solicitarReset', alumno});
+    if(!r.ok) throw new Error(r.error);
+    resetAlumno = alumno;
+    pasoReset(2);
+    aviso(av,'exito', (r.mensaje||'Te enviamos un código.') + ' Si no te llega en unos minutos, contacta a la tesorería.');
+    $('codigoReset').focus();
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo enviar el código.');
+  }finally{ $('btnReset').disabled = false; $('btnReenviar').disabled = false; }
+}
+$('btnReenviar').onclick = enviarCodigo;
+
+$('formReset').addEventListener('submit', async ev=>{
+  ev.preventDefault();
+  if($('pasoReset2').style.display==='none') return enviarCodigo();
+  const av = $('avisoReset');
+  const codigo = $('codigoReset').value.replace(/\D/g,'');
+  const p1 = $('passReset').value, p2 = $('passReset2').value;
+  if(codigo.length!==6) return aviso(av,'error','El código tiene 6 dígitos.');
+  if(p1.length<6) return aviso(av,'error','La contraseña debe tener al menos 6 caracteres.');
+  if(p1!==p2) return aviso(av,'error','Las contraseñas no coinciden.');
+  $('btnReset').disabled = true;
+  try{
+    const hash = await hashCredencial(resetAlumno, p1);
+    const r = await api({action:'confirmarReset', alumno: resetAlumno, codigo, hash});
+    if(!r.ok) throw new Error(r.error);
+    $('codigoReset').value = ''; $('passReset').value = ''; $('passReset2').value = '';
+    verFormulario('formLogin');
+    entrarApoderado({alumno: r.alumno || resetAlumno, hash}, r.datos);
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo cambiar la contraseña.');
+  }finally{ $('btnReset').disabled = false; }
+});
+
+/* ══════════ CORREO DE RECUPERACIÓN (panel) ══════════ */
+function pintarCorreo(d){
+  const b = $('bloqueCorreo');
+  if(!('correo' in d)){ b.style.display = 'none'; return; }   // backend antiguo
+  b.style.display = 'block';
+  const falta = !d.correo;
+  b.classList.toggle('falta', falta);
+  $('correoFalta').style.display = falta ? '' : 'none';
+  $('correoActual').style.display = falta ? 'none' : '';
+  $('correoMascara').textContent = d.correo || '';
+  $('formCorreo').style.display = falta ? '' : 'none';
+  $('btnCorreo').textContent = falta ? 'Guardar correo' : 'Guardar nuevo correo';
+  // si falta, se muestra arriba (después del saludo); si ya está, al final
+  const panel = $('vista-panel');
+  if(falta) panel.insertBefore(b, panel.querySelector('.saludo').nextSibling);
+  else panel.appendChild(b);
+}
+$('btnCambiarCorreo').onclick = ()=>{
+  $('formCorreo').style.display = $('formCorreo').style.display==='none' ? '' : 'none';
+  aviso($('avisoCorreo'),'','');
+  if($('formCorreo').style.display!=='none') $('inputCorreo').focus();
+};
+$('formCorreo').addEventListener('submit', async ev=>{
+  ev.preventDefault();
+  const av = $('avisoCorreo');
+  const correo = $('inputCorreo').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) return aviso(av,'error','Revisa el correo: no parece una dirección válida.');
+  const s = leer('sesionCuotas');
+  if(!s) return;
+  $('btnCorreo').disabled = true;
+  try{
+    const r = await api({action:'guardarCorreo', alumno:s.alumno, hash:s.hash, correo});
+    if(!r.ok) throw new Error(r.error);
+    $('inputCorreo').value = '';
+    if(r.datos && r.datos.ok){ guardar('cachePanel', {alumno:s.alumno, d:r.datos}); pintarPanel(r.datos); }
+    aviso(av,'exito', r.mensaje||'Correo guardado.');
+  }catch(e){
+    aviso(av,'error', e.message||'No se pudo guardar el correo.');
+  }finally{ $('btnCorreo').disabled = false; }
 });
 
 /* El backend v5 ya trae los datos del panel en la respuesta de login/registro */
@@ -758,6 +966,7 @@ async function cargarPanel(){
 }
 
 function pintarPanel(d){
+  pintarCorreo(d);
   $('nombreAlumno').textContent = d.alumno;
   $('fechaAct').textContent = 'Actualizado: ' + (d.actualizado||'');
 
@@ -796,14 +1005,115 @@ function pintarPanel(d){
   $('totalGastos').textContent = '−' + clp(d.totalGastos).replace('−','');
   $('saldoActual').textContent = clp(d.saldoActual);
 
-  $('zonaGastos').innerHTML = d.gastos && d.gastos.length
-    ? `<div class="scroll-x"><table class="tabla">
-        <thead><tr><th>Fecha</th><th>Detalle</th><th style="text-align:right">Monto</th></tr></thead>
-        <tbody>${d.gastos.map(g=>
-          `<tr><td>${esc(g.fecha)}</td><td>${esc(g.detalle)}</td><td class="num">${clp(g.monto)}</td></tr>`
-        ).join('')}</tbody>
-      </table></div>`
-    : '<div class="sin-datos">Aún no hay gastos registrados este año.</div>';
+  pintarGastos(d.gastos || []);
+}
+
+/* ══════════ GASTOS DETALLADOS ══════════ */
+const MESES_NOMBRE = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+/* Acepta 25/03/2026, 01/04/26, 03-08-2026… */
+function fechaPartes(txt){
+  const m = String(txt||'').match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(!m) return null;
+  let y = Number(m[3]); if(y < 100) y += 2000;
+  const mes = Number(m[2]), dia = Number(m[1]);
+  if(mes<1 || mes>12) return null;
+  return {y, mes, dia, orden: y*10000 + mes*100 + dia};
+}
+const capitalizar = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+
+function pintarGastos(gastos){
+  const zona = $('zonaGastos');
+  if(!gastos.length){ zona.innerHTML = '<div class="sin-datos">Aún no hay gastos registrados este año.</div>'; return; }
+
+  const lista = gastos.map((g,i)=>({...g, _f: fechaPartes(g.fecha), _i:i}))
+    .sort((a,b)=> (b._f?b._f.orden:-1) - (a._f?a._f.orden:-1) || a._i - b._i);
+  const total = lista.reduce((s,g)=>s+(Number(g.monto)||0),0);
+
+  // Resumen por categoría (solo si hay 2 o más categorías distintas)
+  const porCat = {};
+  lista.forEach(g=>{ const c = capitalizar(String(g.categoria||'').trim().toLowerCase()) || 'Sin categoría'; porCat[c] = (porCat[c]||0) + (Number(g.monto)||0); });
+  const cats = Object.keys(porCat).sort((a,b)=>porCat[b]-porCat[a]);
+  const mostrarCats = cats.length >= 2;
+  const barras = mostrarCats ? `<div class="cat-barras">${cats.map(c=>`
+      <div class="cat-fila"><span class="cat-nom">${esc(c)}</span>
+        <span class="barra"><i style="width:${total>0?Math.max(2,Math.round(porCat[c]/total*100)):0}%"></i></span>
+        <span class="cat-monto">${clp(porCat[c])} · ${total>0?Math.round(porCat[c]/total*100):0}%</span></div>`).join('')}</div>` : '';
+
+  // Agrupar por mes
+  let html = `<div class="gastos-resumen"><span>${lista.length} gasto${lista.length===1?'':'s'} este año</span><b>${clp(total)}</b></div>` + barras;
+  let mesActual = null;
+  const totMes = {};
+  lista.forEach(g=>{ const k = g._f ? g._f.y+'-'+g._f.mes : 'otros'; totMes[k] = (totMes[k]||0) + (Number(g.monto)||0); });
+  lista.forEach(g=>{
+    const k = g._f ? g._f.y+'-'+g._f.mes : 'otros';
+    if(k !== mesActual){
+      mesActual = k;
+      const titulo = g._f ? MESES_NOMBRE[g._f.mes-1] + ' ' + g._f.y : 'Sin fecha';
+      html += `<div class="gasto-mes"><span>${titulo}</span><span>${clp(totMes[k])}</span></div>`;
+    }
+    const c = g.comprobante;
+    const btn = c
+      ? (c.tipo==='enlace'
+          ? `<a class="btn-comprobante" href="${esc(c.url)}" target="_blank" rel="noopener">Ver comprobante ↗</a>`
+          : `<button type="button" class="btn-comprobante" data-id="${esc(c.id)}" data-nombre="${esc(c.nombre)}">Ver comprobante</button>`)
+      : ('comprobante' in g ? '<span class="sin-comp">Sin comprobante</span>' : '');
+    const cat = mostrarCats && g.categoria ? `<span class="chip-cat">${esc(capitalizar(g.categoria.trim().toLowerCase()))}</span>` : '';
+    html += `<div class="gasto">
+      <div class="gasto-dia">${g._f ? `<b>${g._f.dia}</b><small>${MESES_NOMBRE[g._f.mes-1].slice(0,3)}</small>` : '<small>—</small>'}</div>
+      <div class="gasto-desc">${esc(g.detalle)||'Gasto'}</div>
+      <div class="gasto-monto">${clp(g.monto)}</div>
+      ${g.nota ? `<div class="gasto-nota">${esc(g.nota)}</div>` : ''}
+      ${(cat||btn) ? `<div class="gasto-meta">${cat}${btn}</div>` : ''}
+    </div>`;
+  });
+  zona.innerHTML = html;
+  zona.querySelectorAll('button.btn-comprobante').forEach(b=>{
+    b.onclick = ()=> verComprobante(b.getAttribute('data-id'), b.getAttribute('data-nombre'), b);
+  });
+}
+
+/* Visor: pide el archivo al servidor (solo con sesión) y lo muestra aquí mismo */
+const comprobantesCache = {};
+const EXT = {'image/jpeg':'.jpg','image/png':'.png','application/pdf':'.pdf','application/msword':'.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'.docx'};
+function cerrarVisor(){
+  $('visor').classList.remove('abierto');
+  $('visorCuerpo').innerHTML = '';
+}
+$('visorCerrar').onclick = cerrarVisor;
+$('visor').addEventListener('click', ev=>{ if(ev.target === $('visor')) cerrarVisor(); });
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') cerrarVisor(); });
+
+async function verComprobante(id, nombre, boton){
+  $('visorTitulo').textContent = nombre || 'Comprobante';
+  $('visorCuerpo').innerHTML = '<div class="spinner" style="margin:30px auto"></div>';
+  $('visor').classList.add('abierto');
+  try{
+    let f = comprobantesCache[id];
+    if(!f){
+      if(boton) boton.disabled = true;
+      const sAp = leer('sesionCuotas'), sAd = leer('sesionAdminCuotas');
+      const params = {action:'comprobante', id};
+      if(sAp){ params.alumno = sAp.alumno; params.hash = sAp.hash; }
+      if(sAd){ params.adminHash = sAd.adminHash; }
+      const r = await api(params);
+      if(!r.ok) throw new Error(r.error);
+      const bytes = Uint8Array.from(atob(r.base64), ch=>ch.charCodeAt(0));
+      const blob = new Blob([bytes], {type: r.mime || 'application/octet-stream'});
+      let archivo = r.nombre || 'comprobante';
+      if(!/\.[a-z0-9]{2,4}$/i.test(archivo)) archivo = archivo.replace(/\.$/,'') + (EXT[r.mime]||'');
+      f = comprobantesCache[id] = {url: URL.createObjectURL(blob), mime: r.mime||'', archivo};
+    }
+    if(!$('visor').classList.contains('abierto')) return;
+    if(f.mime.indexOf('image/')===0){
+      $('visorCuerpo').innerHTML = `<img src="${f.url}" alt="Comprobante: ${esc(nombre)}">`;
+    } else {
+      $('visorCuerpo').innerHTML = `<p style="margin:16px 0 4px">Este comprobante es un archivo ${f.mime==='application/pdf'?'PDF':'de documento'}.</p>
+        <a class="btn-principal" href="${f.url}" download="${esc(f.archivo)}" target="_blank" rel="noopener">Abrir / descargar</a>`;
+    }
+  }catch(e){
+    $('visorCuerpo').innerHTML = `<div class="aviso error" style="text-align:left">${esc(e.message||'No se pudo abrir el comprobante.')}</div>`;
+  }finally{ if(boton) boton.disabled = false; }
 }
 
 /* ══════════ LOGIN ADMIN ══════════ */
@@ -932,15 +1242,18 @@ function pintarAdmin(d){
 
   pintarFicha();
 
-  $('admResumenCuentas').textContent = d.cuentas.length + ' registradas';
+  const conCorreo = d.cuentas.filter(c=>c.correo).length;
+  $('admResumenCuentas').textContent = d.cuentas.length + ' registradas'
+    + (d.cuentas.some(c=>'correo' in c) ? ' · ' + conCorreo + ' con correo' : '');
   $('admCuentas').innerHTML = d.cuentas.map(c=>`<tr>
       <td>${esc(c.alumno)}</td>
       <td>${esc(c.apoderado)||'—'}</td>
+      <td>${c.correo ? esc(c.correo) : '<span class="sin-correo">Sin correo</span>'}</td>
       <td>${esc(c.fecha)}</td>
       <td style="text-align:right">
         <button class="btn-mini" data-alumno="${esc(c.alumno)}">Eliminar</button>
       </td>
-    </tr>`).join('') || '<tr><td colspan="4" class="sin-datos">Aún no hay apoderados registrados.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="5" class="sin-datos">Aún no hay apoderados registrados.</td></tr>';
 
   document.querySelectorAll('#admCuentas .btn-mini').forEach(btn=>{
     btn.onclick = async ()=>{
@@ -1338,6 +1651,7 @@ $('btnSalir').onclick = ()=>{
   const eraAdmin = $('vista-admin').style.display==='block';
   borrar('sesionCuotas'); borrar('sesionAdminCuotas');
   borrar('cachePanel'); borrar('cacheAdmin');   // no dejar datos en teléfonos compartidos
+  Object.keys(comprobantesCache).forEach(k=>{ try{ URL.revokeObjectURL(comprobantesCache[k].url); }catch(e){} delete comprobantesCache[k]; });
   $('passLogin').value=''; $('passAdmin').value='';
   aviso($('avisoLogin'),'',''); aviso($('avisoAdmin'),'','');
   mostrar(eraAdmin ? 'vista-admin-login' : 'vista-login');
